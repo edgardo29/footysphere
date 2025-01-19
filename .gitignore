@@ -1,0 +1,23 @@
+# Ignore Python virtual environment
+footysphere_venv/
+
+# Ignore configuration files
+config/credentials.py
+
+# Ignore Python compiled files
+__pycache__/
+*.pyc
+
+# Ignore logs
+*.log
+
+# Ignore environment files
+.env
+
+# Ignore IDE/editor settings
+.idea/
+.vscode/
+
+# Miscellaneous
+.DS_Store
+node_modules/
