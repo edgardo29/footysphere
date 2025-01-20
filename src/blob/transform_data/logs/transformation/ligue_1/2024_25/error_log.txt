@@ -1,0 +1,22 @@
+2025-01-20 05:51:16.516736 - match_stats/ligue_1/2024/1213747.json: Missing field: fixture_id
+2025-01-20 05:51:16.555534 - match_stats/ligue_1/2024/1213748.json: Missing field: fixture_id
+2025-01-20 05:51:16.571671 - match_stats/ligue_1/2024/1213749.json: Missing field: fixture_id
+2025-01-20 05:51:16.599247 - match_stats/ligue_1/2024/1213750.json: Missing field: fixture_id
+2025-01-20 05:51:16.609805 - match_stats/ligue_1/2024/1213751.json: Missing field: fixture_id
+2025-01-20 05:51:16.619301 - match_stats/ligue_1/2024/1213752.json: Missing field: fixture_id
+2025-01-20 05:51:16.629370 - match_stats/ligue_1/2024/1213753.json: Missing field: fixture_id
+2025-01-20 05:51:16.639065 - match_stats/ligue_1/2024/1213754.json: Missing field: fixture_id
+2025-01-20 05:51:16.647995 - match_stats/ligue_1/2024/1213755.json: Missing field: fixture_id
+2025-01-20 05:51:16.657435 - match_stats/ligue_1/2024/1213756.json: Missing field: fixture_id
+2025-01-20 05:51:16.666761 - match_stats/ligue_1/2024/1213763.json: Missing field: fixture_id
+2025-01-20 05:54:07.607467 - match_stats/ligue_1/2024/1213747.json: Validation error - Missing field: fixture_id
+2025-01-20 05:54:07.626949 - match_stats/ligue_1/2024/1213748.json: Validation error - Missing field: fixture_id
+2025-01-20 05:54:07.637655 - match_stats/ligue_1/2024/1213749.json: Validation error - Missing field: fixture_id
+2025-01-20 05:54:07.660025 - match_stats/ligue_1/2024/1213750.json: Validation error - Missing field: fixture_id
+2025-01-20 05:54:07.669732 - match_stats/ligue_1/2024/1213751.json: Validation error - Missing field: fixture_id
+2025-01-20 05:54:07.678897 - match_stats/ligue_1/2024/1213752.json: Validation error - Missing field: fixture_id
+2025-01-20 05:54:07.687412 - match_stats/ligue_1/2024/1213753.json: Validation error - Missing field: fixture_id
+2025-01-20 05:54:07.696588 - match_stats/ligue_1/2024/1213754.json: Validation error - Missing field: fixture_id
+2025-01-20 05:54:07.706120 - match_stats/ligue_1/2024/1213755.json: Validation error - Missing field: fixture_id
+2025-01-20 05:54:07.715545 - match_stats/ligue_1/2024/1213756.json: Validation error - Missing field: fixture_id
+2025-01-20 05:54:07.728382 - match_stats/ligue_1/2024/1213763.json: Validation error - Missing field: fixture_id
