@@ -1,0 +1,56 @@
+/* src/components/leagues/styles/standingsTab.css */
+
+.standings-tab {
+  padding-top: 1rem;
+}
+
+.standings-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: rgba(31, 41, 55, 0.7);
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(4px);
+}
+
+.standings-table th,
+.standings-table td {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: #f9fafb;
+}
+
+.standings-table thead tr {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.standings-table tr:last-child td {
+  border-bottom: none;
+}
+
+.form-td {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.form-dot {
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 600;
+  color: #fff;
+  font-size: 0.85rem;
+}
+
+.win {
+  background-color: #10b981; /* green for wins */
+}
+
+.draw {
+  background-color: #f59e0b; /* amber for draws */
+}
+
+.loss {
+  background-color: #ef4444; /* red for losses */
+}
