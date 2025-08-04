@@ -1,0 +1,95 @@
+/* src/components/leagues/styles/standingsTab.css */
+
+.standings-tab {
+  padding-top: 1rem;
+}
+
+.standings-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: rgba(31, 41, 55, 0.7);
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(4px);
+}
+
+.standings-table th,
+.standings-table td {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: #f9fafb;
+}
+
+.standings-table thead tr {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.standings-table tr:last-child td {
+  border-bottom: none;
+}
+
+.form-td {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.form-dot {
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 600;
+  color: #fff;
+  font-size: 0.85rem;
+}
+
+.win {
+  background-color: #10b981; /* green for wins */
+}
+
+.draw {
+  background-color: #f59e0b; /* amber for draws */
+}
+
+.loss {
+  background-color: #ef4444; /* red for losses */
+}
+
+
+/* TEAM cell layout: keep logo and name on one line, neatly spaced */
+.team-cell { padding-right: 0; } /* don’t crowd the next column */
+
+.team-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;         /* space between logo and text */
+  max-width: 100%;
+}
+
+.team-logo {
+  width: 22px;
+  height: 22px;
+  display: block;
+  object-fit: contain;
+}
+
+.team-logo.placeholder {
+  background: rgba(255,255,255,0.12);
+  border-radius: 50%;
+}
+
+.team-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #e5e7eb;      /* slightly softer than pure white */
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+/* Keep POS narrow and centered without touching other columns */
+.standings-table th:first-child,
+.standings-table td:first-child {
+  width: 56px;
+  text-align: center;
+}
