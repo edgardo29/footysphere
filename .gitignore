@@ -1,3 +1,58 @@
+<<<<<<< HEAD
 # Build folder and log file
 build/
 build.log
+# Ignore Python virtual environment
+footysphere_venv/
+
+# Ignore configuration files
+config/credentials.py
+
+# Ignore Python compiled files
+__pycache__/
+*.pyc
+
+# Ignore logs
+*.log
+
+# Ignore environment files
+.env
+
+# Ignore IDE/editor settings
+.idea/
+.vscode/
+
+# Miscellaneous
+.DS_Store
+node_modules/
+
+
+
+#React
+
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+>>>>>>> 9aa5228 (Initial frontend commit)
