@@ -1,0 +1,55 @@
+{
+  "match_id": 9901101,
+  "season": 2025,
+  "competition": { "id": 253, "name": "MLS" },
+  "round": "Regular Season — 22",
+  "date_utc": "2025-07-14T00:00:00Z",
+  "status": "Full-Time",
+  "venue": { "name": "Providence Park", "city": "Portland", "country": "USA" },
+
+  "home": { "id": 1588, "name": "Portland Timbers", "logo": "https://via.placeholder.com/24?text=P" },
+  "away": { "id": 1595, "name": "Seattle Sounders FC", "logo": "https://via.placeholder.com/24?text=S" },
+
+  "score": {
+    "fulltime":  { "home": 1, "away": 2 },
+    "halftime":  { "home": 0, "away": 1 }
+  },
+
+  "events": [
+    { "minute": 19, "type": "goal",   "team_id": 1595, "player": "R. Ruidíaz",   "assist": "J. Morris",  "detail": "Right foot" },
+    { "minute": 63, "type": "goal",   "team_id": 1588, "player": "E. Williamson", "assist": null,        "detail": "Header" },
+    { "minute": 78, "type": "goal",   "team_id": 1595, "player": "A. Rusnák",    "assist": "N. Lodeiro", "detail": "Free kick" },
+    { "minute": 88, "type": "yellow", "team_id": 1595, "player": "J. Paulo",     "detail": "Foul" }
+  ],
+
+  "stats": {
+    "home": {
+      "possession_pct":    52,
+      "shots_total":       13,
+      "shots_on_target":    5,
+      "shots_inside_box":   8,
+      "shots_outside_box":  5,
+      "corners":            6,
+      "offsides":           2,
+      "passes_total":     480,
+      "pass_accuracy_pct": 84,
+      "fouls":             12,
+      "yellow":             1,
+      "red":                0
+    },
+    "away": {
+      "possession_pct":    48,
+      "shots_total":       10,
+      "shots_on_target":    4,
+      "shots_inside_box":   6,
+      "shots_outside_box":  4,
+      "corners":            4,
+      "offsides":           1,
+      "passes_total":     425,
+      "pass_accuracy_pct": 82,
+      "fouls":             15,
+      "yellow":             2,
+      "red":                0
+    }
+  }
+}

@@ -4,8 +4,8 @@ import "./styles/weeklyMatchesTab.css";
 /** Monday of the current week (local) as YYYY-MM-DD */
 function getDefaultWeekStartISO() {
   const d = new Date();
-  const day = d.getDay();               // 0=Sun..6=Sat
-  const diff = (day === 0 ? -6 : 1 - day); // move to Monday
+  const day = d.getDay(); // 0=Sun..6=Sat
+  const diff = day === 0 ? -6 : 1 - day; // move to Monday
   const monday = new Date(d);
   monday.setDate(d.getDate() + diff);
   monday.setHours(0, 0, 0, 0);
@@ -15,7 +15,7 @@ function getDefaultWeekStartISO() {
 /** Helpers for rendering dates */
 function dayKey(dateStr) {
   const d = new Date(dateStr);
-  // yyyy-mm-dd key for grouping (in local time)
+  // yyyy-mm-dd key for grouping (kept same behavior as before)
   return d.toISOString().slice(0, 10);
 }
 function dayLabel(dateStr) {
@@ -65,7 +65,7 @@ export default function WeeklyMatchesTab({ leagueId }) {
     return () => ctrl.abort();
   }, [leagueId, weekStartISO, days]);
 
-  // Group by day (local)
+  // Group by day
   const grouped = useMemo(() => {
     const map = new Map();
     for (const m of rows) {
@@ -73,8 +73,9 @@ export default function WeeklyMatchesTab({ leagueId }) {
       if (!map.has(k)) map.set(k, []);
       map.get(k).push(m);
     }
-    // Sort days ascending
-    return Array.from(map.entries()).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+    return Array.from(map.entries()).sort(([a], [b]) =>
+      a < b ? -1 : a > b ? 1 : 0
+    );
   }, [rows]);
 
   const weekEnd = useMemo(() => {
@@ -88,89 +89,105 @@ export default function WeeklyMatchesTab({ leagueId }) {
 
   return (
     <div className="weekly-tab">
-      <div className="week-controls">
-        <button
-          className="week-nav"
-          onClick={() => {
-            const d = new Date(weekStartISO + "T00:00:00");
-            d.setDate(d.getDate() - 7);
-            setWeekStartISO(d.toISOString().slice(0, 10));
-          }}
-        >
-          ← Prev
-        </button>
+      <div className="weekly-inner">
+        <div className="week-controls">
+          <button
+            className="week-nav"
+            onClick={() => {
+              const d = new Date(weekStartISO + "T00:00:00");
+              d.setDate(d.getDate() - 7);
+              setWeekStartISO(d.toISOString().slice(0, 10));
+            }}
+          >
+            ← Prev
+          </button>
 
-        <div className="week-range">
-          {new Date(weekStartISO).toLocaleDateString()} —{" "}
-          {new Date(weekEnd).toLocaleDateString()}
+          <div className="week-range">
+            {new Date(weekStartISO).toLocaleDateString()} —{" "}
+            {new Date(weekEnd).toLocaleDateString()}
+          </div>
+
+          <button
+            className="week-nav"
+            onClick={() => {
+              const d = new Date(weekStartISO + "T00:00:00");
+              d.setDate(d.getDate() + 7);
+              setWeekStartISO(d.toISOString().slice(0, 10));
+            }}
+          >
+            Next →
+          </button>
         </div>
 
-        <button
-          className="week-nav"
-          onClick={() => {
-            const d = new Date(weekStartISO + "T00:00:00");
-            d.setDate(d.getDate() + 7);
-            setWeekStartISO(d.toISOString().slice(0, 10));
-          }}
-        >
-          Next →
-        </button>
+        {grouped.length === 0 ? (
+          <p className="empty">No matches scheduled in this range.</p>
+        ) : (
+          grouped.map(([dayIso, matches]) => (
+            <section key={dayIso} className="day-block">
+              <div className="day-header">
+                <span className="day-pill">{dayLabel(dayIso)}</span>
+                <span className="day-count">{matches.length} matches</span>
+              </div>
+
+              {matches.map((m) => {
+                const isFinished = ["FT", "AET", "PEN"].includes(m.status);
+                const centerText = isFinished
+                  ? `${m.home_score ?? 0} - ${m.away_score ?? 0}`
+                  : new Date(m.kickoff_utc).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    });
+
+                return (
+                  <div key={m.id} className="match-card">
+                    {/* Home */}
+                    <div className="team-block">
+                      <div className="team-logo-wrap">
+                        <img
+                          src={m.home_logo}
+                          alt={m.home_name}
+                          className="team-logo"
+                        />
+                      </div>
+                      <div className="team-info">
+                        <span className="team-name">{m.home_name}</span>
+                        <span className="team-place">Home</span>
+                      </div>
+                    </div>
+
+                    {/* Center (time or score) + status */}
+                    <div className="match-details">
+                      <span className="match-time">{centerText}</span>
+                      <span
+                        className={`match-status ${
+                          m.status === "Live" ? "live" : ""
+                        }`}
+                      >
+                        {m.status}
+                      </span>
+                    </div>
+
+                    {/* Away */}
+                    <div className="team-block right">
+                      <div className="team-info right-info">
+                        <span className="team-name">{m.away_name}</span>
+                        <span className="team-place">Away</span>
+                      </div>
+                      <div className="team-logo-wrap">
+                        <img
+                          src={m.away_logo}
+                          alt={m.away_name}
+                          className="team-logo"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </section>
+          ))
+        )}
       </div>
-
-      {/* Days */}
-      {grouped.length === 0 ? (
-        <p className="empty">No matches scheduled in this range.</p>
-      ) : (
-        grouped.map(([dayIso, matches]) => (
-          <div key={dayIso} className="day-block">
-            <div className="league-info-pill">{dayLabel(dayIso)}</div>
-
-            {matches.map((m) => {
-              const isFinished = ["FT", "AET", "PEN"].includes(m.status);
-              const centerText = isFinished
-                ? `${m.home_score ?? 0} - ${m.away_score ?? 0}`
-                : new Date(m.kickoff_utc).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  });
-
-              return (
-                <div key={m.id} className="match-card">
-                  {/* Home */}
-                  <div className="team-block">
-                    <div className="team-logo-wrap">
-                      <img src={m.home_logo} alt={m.home_name} className="team-logo" />
-                    </div>
-                    <div className="team-info">
-                      <span className="team-name">{m.home_name}</span>
-                      <span className="team-place">Home</span>
-                    </div>
-                  </div>
-
-                  {/* Center (time or score) + status */}
-                  <div className="match-details">
-                    <span className="match-time">{centerText}</span>
-                    <span className={`match-status ${m.status === "Live" ? "live" : ""}`}>
-                      {m.status}
-                    </span>
-                  </div>
-
-                  {/* Away */}
-                  <div className="team-block right">
-                    <div className="team-info right-info">
-                      <span className="team-name">{m.away_name}</span>
-                      <span className="team-place">Away</span>
-                    </div>
-                    <div className="team-logo-wrap">
-                      <img src={m.away_logo} alt={m.away_name} className="team-logo" />
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ))
-      )}
     </div>
   );
 }
