@@ -43,12 +43,5 @@ jobs:
           if [ -f requirements.txt ]; then pip install -r requirements.txt; else echo "no requirements.txt"; fi
       - name: Import main.py (smoke)
         run: |
-          python - << 'PY'
-          import importlib.util, pathlib
-          p = pathlib.Path("app/main.py")
-          assert p.exists(), "backend/app/main.py not found"
-          spec = importlib.util.spec_from_file_location("main", str(p))
-          mod = importlib.util.module_from_spec(spec)
-          spec.loader.exec_module(mod)
-          print("Imported backend/app/main.py OK")
-          PY
+          python -c "import app.main; print('Imported backend app.main OK')"
+
