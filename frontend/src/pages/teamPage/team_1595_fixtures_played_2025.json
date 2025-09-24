@@ -1,0 +1,27 @@
+{
+  "team_id": 1595,
+  "season": 2025,
+  "status": "played",
+  "fixtures": [
+    {
+      "match_id": 9901101,
+      "date_utc": "2025-07-14T00:00:00Z",
+      "status": "Full-Time",
+      "home": { "id": 1588, "name": "Portland Timbers", "logo": "https://via.placeholder.com/18?text=P" },
+      "away": { "id": 1595, "name": "Seattle Sounders FC", "logo": "https://via.placeholder.com/18?text=S" },
+      "score": { "home": 1, "away": 2 },
+      "competition": { "id": 253, "name": "MLS" },
+      "venue": "Providence Park"
+    },
+    {
+      "match_id": 9901095,
+      "date_utc": "2025-07-07T02:00:00Z",
+      "status": "Full-Time",
+      "home": { "id": 1595, "name": "Seattle Sounders FC", "logo": "https://via.placeholder.com/18?text=S" },
+      "away": { "id": 1620, "name": "San Jose Earthquakes", "logo": "https://via.placeholder.com/18?text=SJ" },
+      "score": { "home": 3, "away": 1 },
+      "competition": { "id": 253, "name": "MLS" },
+      "venue": "Lumen Field"
+    }
+  ]
+}

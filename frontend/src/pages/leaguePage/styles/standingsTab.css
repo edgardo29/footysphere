@@ -1,0 +1,127 @@
+/* src/components/leagues/styles/standingsTab.css */
+
+.standings-tab { padding-top: 1rem; }
+.table-block { margin-top: 0.75rem; }
+
+/* Compact header: right-aligned group chip only (shown for multi-group leagues) */
+.table-header {
+  max-width: 1200px;
+  margin: 0 auto 0.5rem;
+  display: flex;
+  justify-content: flex-end;
+}
+.table-header.compact { margin-bottom: 0.75rem; }
+
+.group-chip {
+  padding: .22rem .6rem;
+  border-radius: 999px;
+  background: rgba(59,130,246,.18);
+  border: 1px solid rgba(59,130,246,.28);
+  color: #dbeafe;
+  font-weight: 700;
+  font-size: .8rem;
+}
+
+/* Table container */
+.table-wrap {
+  max-width: 1200px;
+  margin-inline: auto;
+  overflow-x: auto;
+  border-radius: 10px;
+}
+
+/* Core table */
+.standings-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: rgba(31, 41, 55, 0.7);
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(4px);
+}
+
+/* Column sizing */
+.col-pos  { width: 56px; }
+.col-team { width: 420px; }
+.col-stat { width: 68px; }
+.col-form { width: 320px; min-width: 280px; }
+
+/* Cells */
+.standings-table th,
+.standings-table td {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: #f9fafb;
+  vertical-align: middle;
+}
+.standings-table thead tr { background: rgba(255, 255, 255, 0.05); }
+.standings-table tr:last-child td { border-bottom: none; }
+
+/* Numeric columns */
+.stat-th, .stat-td {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  padding-inline: 0.5rem;
+}
+
+/* Hover */
+.standings-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+/* FORM */
+.form-td { padding-right: 1rem; }
+.form-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: nowrap;
+}
+.form-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 1.6rem;
+  min-width: 1.6rem;
+  padding: 0 0.45rem;
+  border-radius: 6px;
+  font-weight: 700;
+  color: #fff;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+.win  { background-color: #10b981; }
+.draw { background-color: #f59e0b; }
+.loss { background-color: #ef4444; }
+
+/* TEAM */
+.team-cell { padding-right: 0; }
+.team-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 100%;
+}
+.team-logo { width: 22px; height: 22px; display: block; object-fit: contain; }
+.team-logo.placeholder { background: rgba(255,255,255,0.12); border-radius: 50%; }
+.team-name {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: #e5e7eb; font-weight: 600; line-height: 1.1;
+}
+
+/* POS centered */
+.standings-table th:first-child,
+.standings-table td:first-child { text-align: center; }
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .col-team { width: 360px; }
+  .col-form { width: 300px; }
+}
+@media (max-width: 900px) {
+  .col-team { width: 300px; }
+  .col-form { min-width: 240px; width: 260px; }
+  .form-wrap { flex-wrap: wrap; row-gap: 0.35rem; }
+}

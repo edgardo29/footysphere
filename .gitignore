@@ -1,0 +1,85 @@
+# =========================
+# Build / Artifacts
+# =========================
+build/
+build.log
+dist/
+dist-ssr/
+.vite/
+
+# =========================
+# Node / JS
+# =========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# =========================
+# Python
+# =========================
+footysphere_venv/
+.venv/
+venv/
+ENV/
+__pycache__/
+*.pyc
+
+# =========================
+# Env / Secrets / Local Config
+# =========================
+.env
+.env.*
+*.local
+config/credentials.py
+
+# =========================
+# Logs
+# =========================
+logs/
+*.log
+
+# =========================
+# Editors / IDE
+# =========================
+.vscode/
+!.vscode/extensions.json
+.idea/
+
+# =========================
+# OS / Misc
+# =========================
+.DS_Store
+
+# =========================
+# Windows / VS files
+# =========================
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# =========================
+# FRONTEND equivalents (scoped to frontend/ folder)
+# =========================
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/*.local
+frontend/.vscode/*
+!frontend/.vscode/extensions.json
+frontend/.idea
+frontend/.DS_Store
+frontend/*.suo
+frontend/*.ntvs*
+frontend/*.njsproj
+frontend/*.sln
+frontend/*.sw?
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/pnpm-debug.log*
+frontend/lerna-debug.log*

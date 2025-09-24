@@ -1,0 +1,19 @@
+/* Header */
+.header {
+
+    background-color: rgba(31, 41, 55, 0.5); /* bg-gray-800/50 */
+    border-bottom: 1px solid rgba(55, 65, 81, 0.5); /* border-gray-700/50 */
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    backdrop-filter: blur(10px); /* backdrop-blur-xl */
+  }
+  
+  .header-content {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 0 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }

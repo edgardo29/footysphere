@@ -1,0 +1,160 @@
+/* ===================== MATCH STANDINGS TAB AESTHETIC ===================== */
+/* Mirrors your standingsTab.css tokens */
+:root{
+  --panel-bg: rgba(31, 41, 55, 0.7);          /* same as .standings-table bg */
+  --panel-border: rgba(255, 255, 255, 0.10);  /* same border */
+  --header-bg: rgba(255, 255, 255, 0.05);     /* same thead bg */
+  --row-divider: rgba(255, 255, 255, 0.10);   /* same row bottom border */
+  --row-hover: rgba(255, 255, 255, 0.03);     /* subtle hover like tables */
+
+  --text-strong: #f9fafb;                     /* standings text color */
+  --text-soft: #e5e7eb;
+  --text-muted: #9ca3af;
+}
+
+/* Wrapper */
+.weekly-tab { padding-top: 1rem; }
+.weekly-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 1rem 2rem;
+}
+
+/* ===================== WEEK CONTROLS ===================== */
+/* Style to feel like a small table header bar */
+.week-controls{
+  position: sticky; top: 0; z-index: 5;
+  display:flex; align-items:center; justify-content:space-between;
+  margin: 0.25rem 0 1rem;
+  padding: 0.55rem 0.9rem;
+
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;                /* same radius as standings table */
+  backdrop-filter: blur(4px);         /* matches standings */
+  box-shadow: none;
+}
+.week-range{ font-weight:700; color:var(--text-strong); }
+.week-nav{
+  background: rgba(30,41,59,0.75);
+  color: var(--text-strong);
+  font-weight:600;
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 9999px;
+  padding: .4rem .8rem;
+  cursor:pointer;
+  transition: background .15s ease, transform .08s ease;
+}
+.week-nav:hover{ background: rgba(46,64,87,0.9); transform: translateY(-1px); }
+
+/* ===================== DAY BLOCK (TABLE CONTAINER) ===================== */
+.day-block{
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  overflow: hidden;
+  backdrop-filter: blur(4px);
+  margin-bottom: 1.1rem;
+}
+
+/* Day header = table header row */
+.day-header{
+  display:flex; align-items:center; justify-content:space-between;
+  padding: 0.75rem 1rem;
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--panel-border);
+}
+.day-pill{
+  font-weight:700;
+  color: var(--text-strong);
+}
+.day-count{
+  font-size:.85rem;
+  color: var(--text-muted);
+}
+
+/* ===================== MATCH ROWS ===================== */
+/* Make each .match-card behave like a table row: no card look, use dividers */
+.match-card{
+  display:grid;
+  grid-template-columns: 1fr auto 1fr;  /* left — center — right */
+  align-items:center;
+  gap:.75rem;
+
+  padding: 0.75rem 1rem;
+  background: transparent;
+  border: none;
+  border-radius: 0;                     /* rows are flat inside the table */
+  transition: background .12s ease;
+}
+.match-card + .match-card{
+  border-top: 1px solid var(--row-divider);  /* row separator like table */
+}
+.match-card:hover{ background: var(--row-hover); }
+
+/* ===================== TEAM BLOCKS ===================== */
+/* Align with standings: small logos, no circular badge, tidy text */
+.team-block{ display:flex; align-items:center; gap:.5rem; min-width:0; }
+.team-block.right{ justify-content:flex-end; }
+
+.team-logo-wrap{
+  width: 22px; height: 22px;     /* same visual scale as standings logos */
+  display:block;
+  background: transparent;       /* remove circular chip */
+  border: none;
+  border-radius: 0;
+  flex: 0 0 auto;
+}
+.team-logo{ width:100%; height:100%; object-fit:contain; display:block; }
+
+.team-info{ display:flex; flex-direction:column; min-width:0; }
+.team-info.right-info{ align-items:flex-end; }
+.team-name{
+  color:#e5e7eb;                 /* same as .team-name in standings */
+  font-weight:600; line-height:1.1;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.team-place{ color:#9ca3af; font-size:.75rem; }
+
+/* ===================== CENTER (TIME/SCORE + STATUS) ===================== */
+.match-details{ display:flex; flex-direction:column; align-items:center; min-width:72px; }
+.match-time{
+  color: var(--text-strong);
+  font-weight:700;
+  font-variant-numeric: tabular-nums;
+}
+.match-status{
+  margin-top:.25rem;
+  font-size:.72rem;
+  color: var(--text-soft);
+  padding: .18rem .5rem;
+  border-radius: 6px;                      /* closer to standings form chips */
+  background: rgba(148,163,184,0.12);
+  border: 1px solid rgba(255,255,255,0.12);
+}
+.match-status.live{
+  color:#16a34a;
+  background: rgba(22,163,74,0.12);
+  border-color: rgba(22,163,74,0.35);
+}
+
+/* ===================== STATES ===================== */
+.loading, .error, .empty{
+  color: var(--text-soft);
+  padding: 1rem;
+  text-align:center;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+}
+
+/* ===================== MOBILE ===================== */
+@media (max-width: 640px){
+  .match-card{
+    grid-template-columns: 1fr auto;  /* home + center on row1, away on row2 */
+    grid-auto-rows:auto;
+    row-gap:.35rem;
+  }
+  .team-block.right{ justify-content:flex-start; }
+  .team-info.right-info{ align-items:flex-start; }
+}
