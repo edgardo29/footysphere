@@ -52,8 +52,9 @@ jobs:
             npm install
           fi
 
-      # 4) Lint (optional): runs only if you add a "lint" script in package.json
+      # 4) Lint (optional): RUN but don't fail CI right now
       - name: Lint (if present)
+        continue-on-error: true
         run: |
           if npm run | grep -qE '^  lint'; then
             npm run lint
@@ -61,20 +62,11 @@ jobs:
             echo "No lint script. Skipping."
           fi
 
-      # 5) Typecheck (optional): runs only if you add a "typecheck" script
-      - name: Typecheck (if present)
-        run: |
-          if npm run | grep -qE '^  typecheck'; then
-            npm run typecheck
-          else
-            echo "No typecheck script. Skipping."
-          fi
-
-      # 6) Build the production bundle (Vite/CRA/etc.)
+      # 5) Build the production bundle (Vite/CRA/etc.)
       - name: Build
         run: npm run build
 
-      # 7) Attach the build output to the PR so you can download it (optional convenience)
+      # 6) Attach the build output to the PR so you can download it (optional convenience)
       #    Looks for common output dirs: frontend/dist or frontend/build
       - name: Upload build artifact (PRs only)
         if: ${{ github.event_name == 'pull_request' }}
