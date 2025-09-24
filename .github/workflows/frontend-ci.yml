@@ -1,0 +1,87 @@
+# Visible name in GitHub Actions UI
+name: frontend-ci
+
+on:
+  # Run on PRs that touch frontend/ or this workflow file
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-ci.yml'
+  # Also run after merges to main (sanity check)
+  push:
+    branches: [ main ]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-ci.yml'
+
+# If multiple runs are triggered on the same branch, keep only the newest
+concurrency:
+  group: fe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # Use GitHub's Linux runner
+    runs-on: ubuntu-latest
+
+    # Run all shell commands from the frontend/ folder by default
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      # 1) Pull your repo into the runner
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2) Install Node 20 and enable npm dependency caching for speed
+      - name: Use Node 20 with npm cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          # lockfile path so the cache keys correctly
+          cache-dependency-path: 'frontend/package-lock.json'
+
+      # 3) Install dependencies (prefer reproducible npm ci if lockfile exists)
+      - name: Install deps (prefer npm ci)
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      # 4) Lint (optional): runs only if you add a "lint" script in package.json
+      - name: Lint (if present)
+        run: |
+          if npm run | grep -qE '^  lint'; then
+            npm run lint
+          else
+            echo "No lint script. Skipping."
+          fi
+
+      # 5) Typecheck (optional): runs only if you add a "typecheck" script
+      - name: Typecheck (if present)
+        run: |
+          if npm run | grep -qE '^  typecheck'; then
+            npm run typecheck
+          else
+            echo "No typecheck script. Skipping."
+          fi
+
+      # 6) Build the production bundle (Vite/CRA/etc.)
+      - name: Build
+        run: npm run build
+
+      # 7) Attach the build output to the PR so you can download it (optional convenience)
+      #    Looks for common output dirs: frontend/dist or frontend/build
+      - name: Upload build artifact (PRs only)
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: fe-build-${{ github.sha }}
+          path: |
+            frontend/dist
+            frontend/build
+          if-no-files-found: ignore
