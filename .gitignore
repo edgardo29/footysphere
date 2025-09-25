@@ -83,3 +83,24 @@ frontend/yarn-debug.log*
 frontend/yarn-error.log*
 frontend/pnpm-debug.log*
 frontend/lerna-debug.log*
+
+
+# =========================
+# Backend (FastAPI) — keep secrets, venvs, logs, caches out
+# =========================
+backend/.env
+backend/.env.*
+!backend/.env.example
+backend/__pycache__/
+backend/.pytest_cache/
+backend/.mypy_cache/
+backend/*.log
+backend/.venv/
+backend/venv/
+
+# Backend config secrets (both possible paths)
+backend/config/credentials.py
+config/credentials.py
+
+# Legacy venv names you used before
+footysphere_venv_py312/

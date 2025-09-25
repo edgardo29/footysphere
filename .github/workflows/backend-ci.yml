@@ -1,0 +1,63 @@
+name: backend-ci  # CI for the FastAPI backend
+
+on:
+  # Run CI on PRs that modify backend/ or this workflow file
+  pull_request:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+  # Also run after merges to main that touch backend/ or this workflow
+  push:
+    branches: [ main ]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    # All shell steps below execute inside backend/
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      # 1) Check out the repository at the PR commit/SHA
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2) Match VM Python version; enable pip cache keyed to your deps file
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'                    # <- your VM is 3.12.x
+          cache: 'pip'                              # <- speed up installs
+          cache-dependency-path: backend/requirements_api.txt  # <- EXACT file
+
+      # 3) Provide a non-secret .env if an example exists (prevents import crashes)
+      - name: Prepare .env
+        run: |
+          if [ -f .env.example ] && [ ! -f .env ]; then cp .env.example .env; fi
+
+      # 4) Install backend dependencies from YOUR exact file name
+      - name: Install dependencies
+        run: pip install -r requirements_api.txt
+
+      # 5) Smoke check: fail fast if the app entrypoint can’t import
+      - name: Import app.main
+        run: |
+          python - << 'PY'
+          import importlib, sys
+          try:
+              importlib.import_module('app.main')   # <- adjust only if your path differs
+              print("OK: import app.main")
+          except Exception as e:
+              print("FAIL:", e)
+              sys.exit(1)
+          PY
+
+      # 6) Run tests only if a tests/ folder exists (auto-skip otherwise)
+      - name: Run tests (if present)
+        if: ${{ hashFiles('backend/tests/**') != '' }}
+        run: pytest -q
