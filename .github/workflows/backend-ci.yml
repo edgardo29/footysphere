@@ -1,0 +1,67 @@
+name: backend-ci  # CI for FastAPI backend
+
+on:
+  # Run CI on PRs that touch backend or this workflow file
+  pull_request:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+  # Also run after merges to main that touch backend/workflow (post-merge sanity)
+  push:
+    branches: [ main ]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    # Default working dir for all "run:" steps below
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      # 1) Get repo contents for this PR/SHA
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # 2) Install Python (choose your runtime)
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          # Speed up CI by caching pip based on your backend requirements file
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      # 3) Provide env file for imports if you have .env.example checked in
+      #    (safe: example files contain placeholders, not secrets)
+      - name: Prepare .env from example (if present)
+        run: |
+          if [ -f .env.example ] && [ ! -f .env ]; then cp .env.example .env; fi
+
+      # 4) Install dependencies
+      - name: Install dependencies
+        run: |
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      # 5) Smoke test: can we import your FastAPI app entrypoint?
+      #    Adjust 'app.main:app' below only if your module path differs.
+      - name: Smoke import app.main
+        run: |
+          python - << 'PY'
+          import importlib, sys
+          try:
+              importlib.import_module('app.main')
+              print("✅ import app.main OK")
+          except Exception as e:
+              print("❌ import failed:", e)
+              sys.exit(1)
+          PY
+
+      # 6) Optional: run pytest if you have tests; this auto-skips if none exist
+      - name: Run tests (if any)
+        if: ${{ hashFiles('backend/tests/**') != '' }}
+        run: pytest -q
