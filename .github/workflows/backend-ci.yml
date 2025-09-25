@@ -33,7 +33,7 @@ jobs:
         with:
           python-version: '3.12'                    # <- your VM is 3.12.x
           cache: 'pip'                              # <- speed up installs
-          cache-dependency-path: backend/requirmeent_api.txt  # <- EXACT file
+          cache-dependency-path: backend/requirements_api.txt  # <- EXACT file
 
       # 3) Provide a non-secret .env if an example exists (prevents import crashes)
       - name: Prepare .env
@@ -42,7 +42,7 @@ jobs:
 
       # 4) Install backend dependencies from YOUR exact file name
       - name: Install dependencies
-        run: pip install -r requirmeent_api.txt
+        run: pip install -r requirements_api.txt
 
       # 5) Smoke check: fail fast if the app entrypoint can’t import
       - name: Import app.main
