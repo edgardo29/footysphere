@@ -84,7 +84,6 @@ frontend/yarn-error.log*
 frontend/pnpm-debug.log*
 frontend/lerna-debug.log*
 
-
 # =========================
 # Backend (FastAPI) — keep secrets, venvs, logs, caches out
 # =========================
@@ -102,5 +101,16 @@ backend/venv/
 backend/config/credentials.py
 config/credentials.py
 
-# Legacy venv names you used before
-footysphere_venv_py312/
+
+# --- ETL local-only ---
+etl/config/credentials.py
+etl/.airflow/
+etl/logs/
+etl/*venv*/
+etl/**/__pycache__/
+etl/**/*.pyc
+# Keep the example creds tracked
+!etl/config/credentials.example.py
+
+# --- Backend venv (from earlier) ---
+backend/api_venv/
