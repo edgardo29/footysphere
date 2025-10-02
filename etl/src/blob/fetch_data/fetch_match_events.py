@@ -182,8 +182,9 @@ def _get_fixtures_incremental(conn, season: int, lookback: int, limit: int | Non
         FROM fixtures f
         JOIN leagues l ON l.league_id = f.league_id
        WHERE f.season_year = %s
-         AND (f.fixture_date >= NOW() - INTERVAL '%s days'
-              OR f.status <> 'FT')
+        AND f.fixture_date >= NOW() - INTERVAL '%s days'
+        AND f.fixture_date <= NOW()
+        AND f.status IN ('FT')  -- or ('FT','AET','PEN') if you use them
        ORDER BY f.fixture_id;
     """
     with conn.cursor() as cur:
@@ -253,6 +254,8 @@ def main() -> None:
 
         try:
             payload = fetch_events_from_api(fixture_id)
+            if not payload or not payload.get("response"):
+                continue
             upload_blob(blob_path, payload)
         except Exception as err:  # noqa: BLE001
             log.error("Failed fixture %s: %s", fixture_id, err)

@@ -4,28 +4,26 @@ fetch_fixtures.py
 ───────────────────────────────────────────────────────────────────────────────
 Purpose
 -------
-Fetch fixture JSON from API‑Football and upload it to Azure Blob Storage.
+Fetch fixture JSON from API-Football and upload it to Azure Blob Storage.
 
 Run in **two modes**:
 
 1. --mode full
-   • One‑time season baseline for every league‑season where
+   • One-time season baseline for every league-season where
      backfill_done = TRUE   AND
      full_done     = FALSE
    • After a successful upload, sets full_done → TRUE
-     so the same league‑season is never fetched again
+     so the same league-season is never fetched again
      until the next season rollover.
 
 2. --mode inc
-   • Ad‑hoc, on‑demand delta pull.
-   • You pass a **look‑back window in days** (default 30 via --days D).
-     The script converts D → minutes and calls
-       /fixtures?league=…&season=…&last=<minutes>
-     which returns every fixture whose record was edited
-     in that window (any date, past or future).
-   • Flags in league_catalog are **not** modified.
+   • Ad-hoc, on-demand delta pull.
+   • You pass a **look-back window in days** (default 30 via --days D).
+     The script converts D into a **date window** and calls:
+       /fixtures?league=…&season=…&from=YYYY-MM-DD&to=YYYY-MM-DD&status=FT
+     Flags in league_catalog are **not** modified.
 
-Folder layout (fixed 23‑Jul‑2025)
+Folder layout (fixed 23-Jul-2025)
 ---------------------------------
 raw/fixtures/<slug>_<id>/<yyyy>_<yy>/
     full/full_YYYYMMDD.json                 ← season baseline
@@ -100,15 +98,21 @@ def query_leagues(mode: str):
     return rows
 
 
-def call_api(league_id: int, season: int, mode: str, minutes: int = 0) -> dict:
+def call_api(league_id: int, season: int, mode: str, days: int = 0) -> dict:
     """
-    Call API‑Football /fixtures.
-    • Always passes league & season.
-    • Adds last=<minutes> only for incremental mode.
+    Call API-Football /fixtures with league & season.
+    • For incremental mode, use a date window: from=<YYYY-MM-DD>, to=<YYYY-MM-DD>, status=FT.
+    • Single request (no page param).
     """
     params = {"league": league_id, "season": season}
-    if mode == "inc" and minutes:
-        params["last"] = minutes
+
+    if mode == "inc" and days:
+        today_utc = dt.datetime.now(dt.timezone.utc).date()
+        from_date = (today_utc - dt.timedelta(days=days)).isoformat()
+        to_date   = today_utc.isoformat()
+        params.update({"from": from_date, "to": to_date, "status": "FT"})
+        # If you prefer to include ET/PK finals too and your plan supports it:
+        # params["status"] = "FT-AET-PEN"
 
     resp = requests.get(API_URL, headers=HEADERS, params=params, timeout=30)
     resp.raise_for_status()
@@ -173,8 +177,8 @@ def main(args):
         print(f"No leagues qualify for mode='{args.mode}'. Nothing to do.")
         sys.exit(0)
 
-    # Convert --days to minutes for API param
-    window_minutes = args.days * 1440 if args.mode == "inc" else 0
+    # Pass days straight through; call_api builds from/to
+    window_days = args.days if args.mode == "inc" else 0
 
     success = 0
     for league_id, season, alias in leagues:
@@ -182,7 +186,7 @@ def main(args):
 
         # ── API call ──────────────────────────────────────────────────
         try:
-            data = call_api(league_id, season, args.mode, window_minutes)
+            data = call_api(league_id, season, args.mode, window_days)
         except Exception as e:
             print(f"  ERROR fetching data: {e}")
             continue
@@ -202,7 +206,7 @@ def main(args):
             except Exception as e:
                 print(f"  ERROR updating full_done flag: {e}")
 
-    # Airflow interprets non‑zero exit → task failure
+    # Airflow interprets non-zero exit → task failure
     sys.exit(0 if success else 1)
 
 
@@ -213,8 +217,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description=(
             "Fetch fixture snapshots: "
-            "'full' = one‑time season baseline; "
-            "'inc'  = ad‑hoc delta pull covering the last <days>."
+            "'full' = one-time season baseline; "
+            "'inc'  = ad-hoc delta pull covering the last <days>."
         )
     )
     parser.add_argument(
@@ -228,7 +232,7 @@ if __name__ == "__main__":
         type=int,
         default=30,
         help=(
-            "Look‑back window in *days* for incremental mode. "
+            "Look-back window in *days* for incremental mode. "
             "Ignored when --mode full (default 30)."
         ),
     )
