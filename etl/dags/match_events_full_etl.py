@@ -1,29 +1,29 @@
 """
-match_events_weekly_etl.py   (Airflow 2.8‑safe)
+match_events_etl.py   
 
 DAG graph
 ┌────────────────────┐
-│   fetch_events     │        python fetch_match_events.py --season <auto‑season>
+│   fetch_events     │        python fetch_match_events.py --season <auto-season>
 └─────────┬──────────┘
           │
 ┌─────────▼──────────┐
-│   cleanup_stg      │        python cleanup_stg.py --table stg_match_events
+│   cleanup_stg      │        python cleanup_stg.py --table stg_match_events
 └─────────┬──────────┘
           │
 ┌─────────▼──────────┐
-│   load_to_stg      │        python batch_load_stg_match_events.py
+│   load_to_stg      │        python batch_load_stg_match_events.py
 └─────────┬──────────┘
           │
 ┌─────────▼──────────┐
-│     check_stg      │        python check_match_events.py
+│     check_stg      │        python check_match_events.py
 └─────────┬──────────┘
           │
 ┌─────────▼──────────┐
-│  update_main_table │        CALL update_match_events();
+│  update_main_table │        CALL update_match_events();
 └────────────────────┘
 
-Season logic ➜ The DAG derives the **season_start_year** automatically:
-if the (weekend) data interval falls in **July or later**, season = current year; otherwise season = year − 1. This removes all manual edits when the new season starts.
+Season logic ➜ The DAG derives the **season_start_year** automatically:
+if the (weekend) data interval falls in **July or later**, season = current year; otherwise season = year − 1. This removes all manual edits when the new season starts.
 """
 from __future__ import annotations
 
@@ -32,7 +32,6 @@ from airflow import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.empty import EmptyOperator
 from airflow.utils.trigger_rule import TriggerRule
-from airflow.utils import macros
 
 # ── reusable environment: so we don't repeat long paths in every task ──
 ENV = {
@@ -50,10 +49,10 @@ SEASON_JINJA = (
 )
 
 with DAG(
-    dag_id="match_events_weekly_etl",
-    description="↓ Match events → STG → FACT (weekly, season auto‑detect)",
+    dag_id="match_events_full_etl",
+    description="↓ Match events → STG → FACT (weekly, season auto-detect)",
     start_date=pendulum.datetime(2025, 1, 1, tz="UTC"),
-    schedule="0 6 * * MON",                 # Monday 06:00 UTC
+    schedule="0 6 * * MON",                 # Monday 06:00 UTC
     catchup=False,
     default_args={
         "owner": "footysphere",
@@ -69,7 +68,10 @@ with DAG(
         bash_command=(
             "$PYTHON "
             + ROOT + "/src/blob/fetch_data/fetch_match_events.py "
-            + "--season " + SEASON_JINJA
+            + "--season " + SEASON_JINJA + " "
+            + "--mode incremental "
+            + "--run-date {{ ds }} "
+            + "--lookback-days 8"
         ),
         env=ENV,
     )
@@ -89,7 +91,8 @@ with DAG(
         task_id="load_to_stg",
         bash_command=(
             "$PYTHON "
-            + ROOT + "/src/blob/load_data/batch_load_stg_match_events.py"
+            + ROOT + "/src/blob/load_data/batch_load_stg_match_events.py "
+            + "--stage_folder 'incremental/{{ ds }}'"
         ),
         env=ENV,
     )

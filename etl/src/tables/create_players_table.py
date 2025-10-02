@@ -16,6 +16,8 @@ def create_players_table():
         height         VARCHAR(10),
         weight         VARCHAR(10),
         photo_url      TEXT
+        load_date     TIMESTAMP(0) NOT NULL DEFAULT now(),
+        upd_date      TIMESTAMP(0) NOT NULL DEFAULT now()
     );
 
     -- Composite index on lastname and firstname (if queries typically use both)

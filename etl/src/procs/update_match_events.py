@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 """
-insert_match_events.py
-──────────────────────
 Invokes the Postgres procedure insert_match_events()
 and streams any server‑side NOTICE messages.
 """
@@ -15,8 +13,8 @@ def main():
     cur  = conn.cursor()
     try:
         cur.execute("SET client_min_messages = 'NOTICE';")
-        print("Calling insert_match_events() …")
-        cur.execute("CALL insert_match_events();")
+        print("Calling update_match_events() …")
+        cur.execute("CALL update_match_events();")
         conn.commit()
 
         # Display all RAISE NOTICE lines
@@ -26,7 +24,7 @@ def main():
         print("Upsert to match_events finished.\n")
     except Exception as exc:
         conn.rollback()
-        print("ERROR during insert_match_events():", exc)
+        print("ERROR during update_match_events():", exc)
     finally:
         cur.close()
         conn.close()

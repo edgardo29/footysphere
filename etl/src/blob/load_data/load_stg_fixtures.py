@@ -6,13 +6,13 @@ Stage fixture JSON from Azure Blob Storage into stg_fixtures.
 
 Flag logic
 ----------
-baseline_loaded  = FALSE   →  First time for this league‑season:
+baseline_loaded  = FALSE   →  First time for this league-season:
                               • load newest baseline in /full/
                               • then every /inc/ file newer than that baseline
                               • set baseline_loaded = TRUE on success
 
 baseline_loaded  = TRUE    →  Skip /full/, load only /inc/ files.
-                              Used for ad‑hoc updates when you have just
+                              Used for ad-hoc updates when you have just
                               fetched a delta file with --mode inc --days N.
 
 A truncate step is assumed *outside* this script (e.g., cleanup_stg.py) so
@@ -31,6 +31,7 @@ import os
 import sys
 import json
 import argparse
+import datetime as dt
 from typing import List, Tuple
 from azure.storage.blob import BlobServiceClient
 
@@ -119,7 +120,7 @@ def get_leagues_to_stage(one_league: int | None) -> List[Tuple[int, str, int, bo
 
 
 def insert_chunk(cur, rows):
-    """Bulk‑insert rows into stg_fixtures."""
+    """Bulk-insert rows into stg_fixtures."""
     if not rows:
         return
 
@@ -190,7 +191,7 @@ def mark_baseline_loaded(conn, league_id: int):
 # ═════════════════════════════════════════════════════════════════════
 def load_league(league_id: int, alias: str, season: int, load_baseline: bool):
     """
-    Load fixtures for one league‑season.
+    Load fixtures for one league-season.
     • If load_baseline is True  → newest /full/ file first, then /inc/ newer.
     • Else                       → skip /full/, load only /inc/ files.
     """
@@ -204,9 +205,17 @@ def load_league(league_id: int, alias: str, season: int, load_baseline: bool):
     latest_full = full_files[-1] if full_files else None
     inc_files = list_blobs(inc_prefix)
 
-    # when loading baseline, filter inc newer than that baseline
+    # when loading baseline, filter inc newer than that baseline (compare timestamps)
     if load_baseline and latest_full:
-        inc_files = [p for p in inc_files if p.split('/')[-1] > latest_full.split('/')[-1]]
+        base_dt = dt.datetime.strptime(os.path.basename(latest_full), "full_%Y%m%d.json")
+        inc_files = [
+            p for p in inc_files
+            if dt.datetime.strptime(os.path.basename(p), "inc_%Y%m%dT%H%MZ.json") > base_dt
+        ]
+
+    # incremental-only runs: keep only the newest inc file
+    if not load_baseline and inc_files:
+        inc_files = inc_files[-1:]  # list_blobs() returns sorted; last is newest
 
     if not load_baseline and not inc_files:
         print(f"  No incremental files for league_id={league_id}. Skipping.")
@@ -246,7 +255,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--league-id",
         type=int,
-        help="Stage only this league (otherwise auto‑select ready leagues).",
+        help="Stage only this league (otherwise auto-select ready leagues).",
     )
     args = parser.parse_args()
 

@@ -7,9 +7,10 @@ into the **stg_match_events** table.
 
 Key points
 ----------
-1. **Stage folder flexibility** – The script now accepts a CLI flag
-   `--stage_folder` so you can target either *initial* back-fills **or** your
-   new *incremental* drops without changing any code.
+1. **Stage folder flexibility** – The script accepts a CLI flag
+   `--stage_folder` that can be either:
+       • "initial"
+       • "incremental/<YYYY-MM-DD>"  (e.g., "incremental/2025-09-29")
 2. **Chunked inserts** – Uses psycopg2.extras.execute_values() to push rows in
    pages of 1 000 at a time (tweak BATCH_SZ if needed).
 3. **Single responsibility** – Loads exactly one `<league>/<season>` pair per
@@ -23,7 +24,7 @@ raw/
     ├── initial/
     │   └── <league_folder>/<season_folder>/events_<fixture_id>.json
     └── incremental/
-        └── <league_folder>/<season_folder>/events_<fixture_id>.json
+        └── <YYYY-MM-DD>/<league_folder>/<season_folder>/events_<fixture_id>.json
 """
 
 import os, sys, json, argparse
@@ -54,15 +55,14 @@ cli.add_argument("--league_folder", required=True,
 cli.add_argument("--season_folder", required=True,
                  help="Season folder, e.g. '2024_25'")
 cli.add_argument("--stage_folder", default="initial",
-                 choices=["initial", "incremental"],
-                 help=("Top-level folder under match_events/ (default: "
-                       "'initial'). For new weekly runs, pass 'incremental'."))
+                 help=("Path under match_events/. Examples: 'initial' OR "
+                       "'incremental/2025-09-29'"))
 args = cli.parse_args()
 
 # Construct the blob prefix dynamically so the exact source location is
 #  raw/match_events/<stage_folder>/<league_folder>/<season_folder>/…
 blob_prefix = (
-    f"match_events/{args.stage_folder}/"
+    f"match_events/{args.stage_folder.strip('/')}/"
     f"{args.league_folder}/"
     f"{args.season_folder}/"
 )
