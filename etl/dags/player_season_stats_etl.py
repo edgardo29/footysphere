@@ -1,230 +1,107 @@
 """
-player_season_stats_etl.py
-────────────────────────────────────────────────────────────────────────────
-Weekly ETL for player_season_stats
+player_season_stats_snapshot_etl.py  (Airflow 2.8-safe: manual snapshot load)
 
-Task list
----------
-1. Build target list from player_stats_load_state.
-2. Build ids.txt for incremental targets.
-3. Combine targets + id paths for mapped BashOperators.
-4. Fetch JSONs from API-Football to Azure Blob (Script A).
-5. Truncate stg_player_season_stats.
-6. Load JSONs from Blob into staging (Script B).
-7. Merge staging into player_season_stats.
-8. Update player_stats_load_state.
+DAG graph
+┌────────────────────┐
+│    cleanup_stg     │   python cleanup_stg.py --table stg_player_season_stats
+└─────────┬──────────┘
+          │
+┌─────────▼──────────┐
+│    load_to_stg     │   python load_stg_player_season_stats.py
+│                    │   --window <summer|winter|latest|label>
+│                    │   [--league_id <ID> | --league_ids "<ID1,ID2>"]
+└─────────┬──────────┘
+          │
+┌─────────▼──────────┐
+│     check_stg      │   python call_check_stg_player_season_stats.py  (PROC)
+└─────────┬──────────┘
+          │
+┌─────────▼──────────┐
+│   merge_to_main    │   python call_update_player_season_stats.py     (PROC)
+└────────────────────┘
+
+Purpose
+  Load player season stats from an existing *Blob snapshot* → staging → validate → upsert to prod.
+  • Strict league filter (only statistics blocks where league.id == league_id).
+  • DB-driven discovery of leagues/seasons; snapshot resolved by --window.
+  • No dependency on player_stats_load_state.
+
+Trigger
+  Manual runs only (2× per season). Examples:
+    {"window":"summer"}                      # default if omitted
+    {"window":"winter"}
+    {"window":"latest"}
+    {"window":"summer_20250930_2148"}        # explicit label
+    {"window":"summer","league_id":39}       # single league
+    {"window":"summer","league_ids":"39,78"} # subset
 """
 
 from __future__ import annotations
-import logging
 import pendulum
-import sys
-from pathlib import Path
-
 from airflow import DAG
-from airflow.operators.python import PythonOperator
-from airflow.operators.bash   import BashOperator
-from airflow.utils.trigger_rule import TriggerRule
+from airflow.operators.bash import BashOperator
 
-# ----------------------------------------------------------------------
-# 1.  Make local project modules importable for every PythonOperator
-# ----------------------------------------------------------------------
-PROJECT_ROOT = Path(__file__).resolve().parents[1]        # .../footysphere
-for folder in ("src", "test_scripts", "config"):
-    p = (PROJECT_ROOT / folder).as_posix()
-    if p not in sys.path:
-        sys.path.append(p)
-# ----------------------------------------------------------------------
-
-# Global ENV / ROOT constants (still needed for BashOperator subprocesses)
-ROOT = "{{ var.value.FOOTY_ROOT }}"
+# Reusable environment
 ENV = {
     "PYTHON": "{{ var.value.PYTHON }}",
     "PG_CONN": "{{ var.value.PG_CONN }}",
-    "PYTHONPATH": (
-        "{{ var.value.FOOTY_ROOT }}/src:"
-        "{{ var.value.FOOTY_ROOT }}/test_scripts:"
-        "{{ var.value.FOOTY_ROOT }}/config"
-    ),
 }
+ROOT = "{{ var.value.FOOTY_ROOT }}"  # e.g., /home/football_vmadmin/footysphere-repo/etl
 
-logging.getLogger(__name__).info("player_season_stats_etl DAG parsed OK")
-
-# ───────────────────────── Helper functions ─────────────────────────────
-def get_player_targets(**_) -> list[dict]:
-    """Helper for Task 1."""
-    from get_db_conn import get_db_connection
-    rows=[]
-    with get_db_connection() as conn:
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT ls.league_id,            -- <-- EDIT  (new)
-                   l.folder_alias,
-                   ls.season_str,
-                   ls.season_year,
-                   CASE WHEN pls.last_load_ts IS NULL
-                        THEN 'initial' ELSE 'incremental' END
-            FROM   league_seasons ls
-            JOIN   leagues        l  ON l.league_id = ls.league_id
-            JOIN   player_stats_load_state pls
-                   ON pls.league_id   = ls.league_id
-                  AND pls.season_year = ls.season_year
-            WHERE  pls.is_active_load = true;
-        """)
-        for lid, lf, ss, yr, mode in cur.fetchall():           # <-- EDIT
-            rows.append(
-                dict(league_id=lid, league=lf, season=ss,      # <-- EDIT
-                     year=yr, mode=mode)
-            )
-    return rows
-
-def build_player_id_list(league:str, season:str, year:int, mode:str, **_) -> str:
-    """Helper for Task 2."""
-    if mode == "initial":
-        return ""
-    from pathlib import Path
-    from get_db_conn import get_db_connection
-    path = Path(f"/tmp/ids_{league}_{season}.txt")
-    with get_db_conn() as conn, path.open("w") as fh:
-        cur = conn.cursor()
-        cur.execute("""
-            WITH ref AS (
-              SELECT last_load_ts
-              FROM   player_stats_load_state pls
-              JOIN   leagues l ON l.league_id = pls.league_id
-              WHERE  l.folder_alias = %s AND pls.season_year = %s
-            )
-            SELECT DISTINCT player_id
-            FROM   match_events me, ref
-            WHERE  me.league_folder = %s
-              AND  me.season_str    = %s
-              AND  me.event_time   > ref.last_load_ts;
-        """, (league, year, league, season))
-        for (pid,) in cur.fetchall():
-            fh.write(f"{pid}\n")
-    return str(path)
-
-def zip_targets_and_ids(targets, id_files, **_) -> list[dict]:
-    """Helper for Task 3."""
-    return [{"params": {**t, "id_file": p}} for t, p in zip(targets, id_files)]
-
-# ───────────────────────────── DAG object ───────────────────────────────
 with DAG(
-    dag_id="player_season_stats_etl",
+    dag_id="player_season_stats_snapshot_etl",
+    description="Snapshot → STG → CHECK → MERGE for player_season_stats (strict, manual).",
     start_date=pendulum.datetime(2025, 1, 1, tz="UTC"),
-    schedule="30 06 * * 1",
+    schedule=None,                      # manual only
     catchup=False,
     default_args={
         "owner": "footysphere",
-        "retries": 1,
-        "retry_delay": pendulum.duration(minutes=5),
+        "retries": 0,
     },
-    tags=["footysphere", "player_stats"],
+    tags=["footysphere", "player_stats", "snapshot"],
     is_paused_upon_creation=True,
+    max_active_runs=1,
 ) as dag:
 
-    # Task 1: build target list ------------------------------------------------
-    build_targets = PythonOperator(
-        task_id="build_player_targets",
-        python_callable=get_player_targets,
-    )
-
-    # Task 2: build ids.txt (mapped)
-    id_files = (
-        PythonOperator
-        .partial(task_id="build_player_id_list",
-                 python_callable=build_player_id_list)
-        .expand(op_kwargs=build_targets.output)
-    )
-
-    # Task 3: zip targets + ids ------------------------------------------------
-    zipped = PythonOperator(
-        task_id="zip_params",
-        python_callable=zip_targets_and_ids,
-        op_args=[build_targets.output, id_files.output],
-    )
-
-    # Task 4: fetch JSONs → Blob (Script A) ------------------------------------
-    fetch_player_stats = (
-        BashOperator
-        .partial(
-            task_id="fetch_player_stats",
-            bash_command=(
-                "$PYTHON " + ROOT + "/src/blob/fetch_data/fetch_player_season_stats.py "
-                "--league_folder {{ params.league }} "
-                "--league_id     {{ params.league_id }} "        # <-- EDIT
-                "--season_str    {{ params.season }} "
-                "--season_year   {{ params.year }} "
-                "--run_mode      {{ params.mode }} "
-                "{% if params.id_file %}--player_list_path {{ params.id_file }}{% endif %}"
-            ),
-            env=ENV,
-        )
-        .expand_kwargs(zipped.output)
-    )
-
-    # Task 5: truncate staging table ------------------------------------------
+    # 1) Truncate staging table before reload.
     cleanup_stg = BashOperator(
         task_id="cleanup_stg",
-        bash_command="$PYTHON " + ROOT + "/src/procs/cleanup_stg.py "
-                     "--table stg_player_season_stats",
+        bash_command="$PYTHON " + ROOT + "/src/procs/cleanup_stg.py --table stg_player_season_stats",
         env=ENV,
+        doc_md="Truncate **stg_player_season_stats** prior to load.",
     )
 
-    # Task 6: load Blob → staging (Script B) -----------------------------------
-    load_to_stg = (
-        BashOperator
-        .partial(
-            task_id="load_to_stg",
-            bash_command=(
-                "$PYTHON " + ROOT + "/src/blob/load_data/load_stg_player_season_stats.py "
-                "--league_folder {{ params.league }} "
-                "--season_str    {{ params.season }} "
-                "--run_mode      {{ params.mode }} "
-                "{% if params.id_file %}--player_list_path {{ params.id_file }}{% endif %}"
-                # league_id not needed by Script B; omitted
-            ),
-            env=ENV,
-            trigger_rule=TriggerRule.ALL_SUCCESS,
-        )
-        .expand_kwargs(zipped.output)
-    )
-
-
-    # Task 7: Dadat validation --------------------------------------------
-    check_stg = BashOperator(
-        task_id="check_stg",
+    # 2) Load Blob → staging (DB-driven loader picks leagues/seasons & resolves snapshot by --window).
+    load_to_stg = BashOperator(
+        task_id="load_to_stg",
         bash_command=(
-            "$PYTHON "
-            + ROOT + "/src/procs/check_player_season_stats.py"
+            "$PYTHON " + ROOT + "/src/blob/load_stg_player_season_stats.py "
+            "--window {{ dag_run.conf.get('window', 'summer') }}"
+            "{% if dag_run.conf.get('league_id') %} --league_id {{ dag_run.conf['league_id'] }}{% endif %}"
+            "{% if dag_run.conf.get('league_ids') %} --league_ids {{ dag_run.conf['league_ids'] }}{% endif %}"
+            # strict competition by default (do NOT pass --no_strict_competition)
         ),
         env=ENV,
-        # Checks row-count, NULLs, PK duplicates, etc.
+        doc_md=(
+            "Reads `players/<folder>/<season>/<snapshot>/player_details/*.json` and inserts into staging. "
+            "Strict filter keeps only statistics blocks for the target league."
+        ),
     )
 
-    # Task 8: merge staging → prod --------------------------------------------
+    # 3) Validate staging (PROC wrapper prints vertical summary + per-rule counts).
+    check_stg = BashOperator(
+        task_id="check_stg",
+        bash_command="$PYTHON " + ROOT + "/test_scripts/call_check_stg_player_season_stats.py",
+        env=ENV,
+        doc_md="Run DQ checks; write issues to **data_load_errors**; print per-rule counts.",
+    )
+
+    # 4) Upsert staging → prod (PROC wrapper prints inserted/updated totals).
     merge_to_main = BashOperator(
         task_id="merge_to_main",
-        bash_command="$PYTHON " + ROOT + "/src/procs/insert_player_season_stats.py",
+        bash_command="$PYTHON " + ROOT + "/test_scripts/call_update_player_season_stats.py",
         env=ENV,
+        doc_md="MERGE **stg_player_season_stats** → **player_season_stats** (idempotent).",
     )
 
-    # Task 8: update load-state -------------------------------------------------
-    update_state = (
-        BashOperator
-        .partial(
-            task_id="update_state",
-            bash_command=(
-                "$PYTHON " + ROOT + "/src/procs/update_player_stats_state.py "
-                "--league_folder {{ params.league }} "
-                "--season_str    {{ params.season }} "
-                "--run_mode      {{ params.mode }}"
-            ),
-            env=ENV,
-        )
-        .expand_kwargs(zipped.output)
-    )
-
-    # Dependencies
-    build_targets >> id_files >> zipped >> fetch_player_stats >> cleanup_stg
-    cleanup_stg   >> load_to_stg >> check_stg >> merge_to_main >> update_state
+    cleanup_stg >> load_to_stg >> check_stg >> merge_to_main

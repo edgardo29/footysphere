@@ -1,262 +1,375 @@
-#!/usr/bin/env python
-"""
-load_stg_player_season_stats.py
-────────────────────────────────────────────────────────────────────────────
-Bulk-loads API-Football *player-season statistics* JSON files from Azure
-Blob Storage into **stg_player_season_stats** (staging).
+#!/usr/bin/env python3
+# load_stg_player_season_stats.py
+#
+# Purpose
+# -------
+# Load per-player, per-competition season stats from Azure Blob into
+# **stg_player_season_stats** using your snapshot layout:
+#
+#   players/<folder_alias>/<season_str>/<snapshot>/player_details/player_*.json
+#
+# Key ideas
+# ---------
+# • You do NOT type league folder or season on the CLI. This script discovers
+#   them from Postgres (league_catalog + league_seasons).
+# • CLI only needs:
+#       --window  (summer | winter | latest | explicit label like summer_20250930_2130)
+#   Optionally:
+#       --league_id 39                (single league filter)
+#       --league_ids 39,78            (multi league filter)
+#       --no_strict_competition       (keep ALL statistics[] blocks; by default we
+#                                     keep only blocks matching the league_id)
+# • This script ONLY INSERTS into staging. Truncate/check/merge are separate steps.
+#
+# Table expectation (staging)
+# ---------------------------
+# stg_player_season_stats should contain at least:
+#   player_id, team_id, league_id, season, position, number,
+#   appearances, lineups, minutes_played, goals, assists, saves,
+#   dribbles_attempts, dribbles_success, fouls_committed, tackles,
+#   passes_total, passes_key, pass_accuracy, yellow_cards, red_cards
+#
+# Safety & robustness
+# -------------------
+# • Snapshot selection: newest "summer_*" / "winter_*" / newest overall ("latest")
+#   or a fixed explicit snapshot label.
+# • Type coercion: strings like "6.700000" safely cast to numeric; blanks → NULL.
+# • Strict league filter: default keeps only statistics blocks for the intended
+#   competition (league_id from DB), preventing cups/UCL from leaking in.
 
-Operating modes
----------------
-initial      → players/initial/<league>/<season>/run_<date>/player_details/*
-incremental  → players/incremental/<league>/<season>/<date>/*
-
-On each run the script
-
-1.  Detects the newest run_<date> (or YYYY-MM-DD) folder.
-2.  Streams every `player_<id>.json` inside it.
-3.  Parses the JSON’s `statistics` array → 0-N DB rows per file.
-4.  Buffers rows in CHUNK_SIZE batches, inserts with one VALUES clause.
-5.  Prints a concise summary.
-
-The staging → production merge is handled later by the Airflow DAG.
-"""
-
-# ────────────────────────── standard-library imports ────────────────────
 import os
 import sys
+import re
 import json
-import logging
-from pathlib import Path
-from typing import List, Tuple
+import argparse
+from typing import List, Tuple, Optional, Dict
 
-# ───────────────────────── Azure SDK import  ────────────────────────────
 from azure.storage.blob import BlobServiceClient
 
-# ──────────────────────── project helper imports  ───────────────────────
-# make sure <repo>/config and <repo>/test_scripts are importable
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                             "../../../config")))
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                             "../../../test_scripts")))
+# --- Project helpers (credentials + DB conn) -----------------------------
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../config")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../test_scripts")))
+from credentials import AZURE_STORAGE
+from get_db_conn import get_db_connection
 
-from credentials import AZURE_STORAGE           # storage credentials dict
-from get_db_conn  import get_db_connection      # helper returning psycopg2.conn
+CHUNK_SIZE = 1000  # rows per bulk insert
 
-# ────────────────────────── logging setup  ─────────────────────────────
-logging.basicConfig(format="%(asctime)s [%(levelname)s] %(message)s",
-                    level=logging.INFO)
-log = logging.getLogger(__name__)
-# silence Azure SDK INFO chatter
-logging.getLogger("azure").setLevel(logging.WARNING)
 
-# ─────────────────────────── constants  ─────────────────────────────────
-CHUNK_SIZE = 1_000   # flush to DB after this many rows
+# ---------------------------- Azure helpers -----------------------------
 
-# ─────────────────────────── Azure helpers  ────────────────────────────
-def _blob_client() -> BlobServiceClient:
+def _bsc() -> BlobServiceClient:
+    """Return an authenticated Azure BlobServiceClient."""
+    account_url = f"https://{AZURE_STORAGE['account_name']}.blob.core.windows.net"
+    return BlobServiceClient(account_url=account_url, credential=AZURE_STORAGE["access_key"])
+
+
+def _fetch_json(container: str, blob_path: str) -> dict:
+    """Download a small JSON blob and return it as a Python dict."""
+    bc = _bsc().get_blob_client(container=container, blob=blob_path)
+    data = bc.download_blob().readall()
+    return json.loads(data)
+
+
+def _list_snapshot_labels(container_client, season_base_prefix: str) -> List[str]:
     """
-    Return a ready-to-use BlobServiceClient so we don’t repeat URL /
-    credential glue everywhere.
+    Enumerate snapshot folder names directly under:
+      players/<folder_alias>/<season_str>/
+    Example return: ["summer_20250930_2130", "winter_20260201_0815"]
     """
-    url = f"https://{AZURE_STORAGE['account_name']}.blob.core.windows.net"
-    return BlobServiceClient(account_url=url,
-                             credential=AZURE_STORAGE["access_key"])
+    labels = set()
+    prefix = season_base_prefix.rstrip("/") + "/"
+    for b in container_client.list_blobs(name_starts_with=prefix):
+        rel = b.name[len(prefix):]
+        if "/" in rel:
+            labels.add(rel.split("/", 1)[0])
+    return sorted(labels)
 
 
-def _fetch_blob_json(container: str, blob_path: str) -> dict:
+def _resolve_snapshot(container_client, season_base_prefix: str, window: str) -> str:
     """
-    Download a *small* JSON blob (<1 MB) and return it as a Python dict.
-    Any network / SDK exception bubbles up to caller.
+    Decide which snapshot folder to use based on --window.
+      • "summer"/"winter" → newest snapshot with that prefix
+      • "latest"          → newest snapshot regardless of prefix
+      • explicit label    → used as-is
+    Raises RuntimeError if nothing matches.
     """
-    bytestr = (_blob_client()
-               .get_blob_client(container=container, blob=blob_path)
-               .download_blob()
-               .readall())
-    return json.loads(bytestr)
+    w = window.strip().lower()
+    if w in {"summer", "winter", "latest"}:
+        labels = _list_snapshot_labels(container_client, season_base_prefix)
+        if not labels:
+            raise RuntimeError(f"No snapshots found under {season_base_prefix}/")
+        if w == "latest":
+            return labels[-1]
+        filtered = [x for x in labels if x.startswith(f"{w}_")]
+        if not filtered:
+            raise RuntimeError(f"No '{w}_*' snapshots found under {season_base_prefix}/")
+        return filtered[-1]
+    return window  # explicit label such as "summer_20250930_2130"
 
-# ────────────────────────────── parsing  ────────────────────────────────
-def parse_stats_rows(payload: dict) -> List[Tuple]:
-    """
-    Convert one `/players?id=` payload to 0-N tuples in the exact column
-    order of **stg_player_season_stats**.
 
-    • One player JSON may contain several `statistics` blocks (one per
-      competition they appeared in). Each block becomes one DB row.
-    • We skip blocks missing mandatory keys (team_id, league_id, season).
-    • Every value we don’t care about is left as None.
+# ----------------------------- DB helpers -------------------------------
+
+def get_league_worklist(
+    league_id: Optional[int] = None,
+    league_ids: Optional[List[int]] = None
+) -> List[Dict]:
     """
-    # Payload top-level shape: {"response":[{ "player":{…}, "statistics":[…] }]}
-    resp = payload.get("response", [])
-    if not resp:                      # empty response → nothing to load
+    Build the list of leagues to process:
+      [{league_id, folder_alias, season_str}, ...]
+    Source tables:
+      • league_catalog (is_enabled flag, optional folder_alias)
+      • league_seasons (is_current season, season_str)
+      • leagues        (fallback folder_alias or league_name)
+
+    Filtering:
+      • If league_id is provided → exact match (= %s).
+      • Else if league_ids list is provided → ANY(%s) with a tuple.
+      • Else → all enabled current leagues.
+
+    Returns a list; empty if nothing matches.
+    """
+    base_sql = """
+        SELECT
+        lc.league_id,
+        COALESCE(
+            lc.folder_alias,
+            l.folder_alias,
+            lower(regexp_replace(l.league_name, '[^a-z0-9]+', '_', 'g')) || '_' || lc.league_id
+        ) AS folder_alias,
+        ls.season_str AS season_str
+        FROM league_catalog lc
+        JOIN league_seasons ls
+        ON ls.league_id = lc.league_id
+        AND ls.is_current = TRUE
+        LEFT JOIN leagues l
+        ON l.league_id = lc.league_id
+        WHERE lc.is_enabled = TRUE
+    """
+    order = " ORDER BY lc.league_id"
+
+    with get_db_connection() as conn:
+        cur = conn.cursor()
+        if league_id is not None:
+            sql = base_sql + " AND lc.league_id = %s" + order
+            cur.execute(sql, (league_id,))
+        elif league_ids:
+            sql = base_sql + " AND lc.league_id = ANY(%s)" + order
+            cur.execute(sql, (tuple(league_ids),))  # tuple-of-ids wrapped once
+        else:
+            sql = base_sql + order
+            cur.execute(sql)
+
+        rows = cur.fetchall()
+
+    return [{"league_id": r[0], "folder_alias": r[1], "season_str": r[2]} for r in rows]
+
+
+# ---------------------------- parsing helpers ---------------------------
+
+def _to_int(x) -> Optional[int]:
+    """Coerce value to int; return None on failure/empty."""
+    if x is None or x == "":
+        return None
+    try:
+        return int(float(x))  # handles "6", "6.0", "6.700000"
+    except Exception:
+        return None
+
+
+def _to_num(x) -> Optional[float]:
+    """Coerce value to float; return None on failure/empty."""
+    if x is None or x == "":
+        return None
+    try:
+        return float(x)
+    except Exception:
+        return None
+
+
+def parse_stats_rows(payload: dict, strict_league_id: Optional[int]) -> List[Tuple]:
+    """
+    Convert one /players payload to 0..N rows (one per statistics[] block),
+    matching **stg_player_season_stats** insert order.
+    If strict_league_id is set, keep only blocks where league.id == strict_league_id.
+    """
+    resp = payload.get("response") or []
+    if not resp:
         return []
 
-    player = resp[0].get("player", {})
-    stats  = resp[0].get("statistics", [])
-    player_id = player.get("id")
-
-    # If we somehow have no player_id OR no statistics array, bail out.
-    if not (player_id and stats):
+    player = resp[0].get("player") or {}
+    stats  = resp[0].get("statistics") or []
+    player_id = _to_int(player.get("id"))
+    if not player_id or not stats:
         return []
 
     rows: List[Tuple] = []
-    for block in stats:
-        # Pull out nested sub-dicts; default to empty dict to avoid KeyError
-        team    = block.get("team",   {})
-        league  = block.get("league", {})
-        games   = block.get("games",  {})
-        goals   = block.get("goals",  {})
-        drib    = block.get("dribbles", {})
-        fouls   = block.get("fouls", {})
-        tackles = block.get("tackles", {})
-        passes  = block.get("passes", {})
-        cards   = block.get("cards",  {})
+    for blk in stats:
+        team    = blk.get("team") or {}
+        league  = blk.get("league") or {}
+        games   = blk.get("games") or {}
+        goals   = blk.get("goals") or {}
+        drib    = blk.get("dribbles") or {}
+        fouls   = blk.get("fouls") or {}
+        tackles = blk.get("tackles") or {}
+        passes  = blk.get("passes") or {}
+        cards   = blk.get("cards") or {}
 
-        # Mandatory identifiers
-        team_id   = team.get("id")
-        league_id = league.get("id")
-        season    = league.get("season")
+        team_id   = _to_int(team.get("id"))
+        league_id = _to_int(league.get("id"))
+        season    = _to_int(league.get("season"))
 
-        if not (team_id and league_id and season):
-            # Skip if basic identifiers are missing (corrupt block).
+        if strict_league_id is not None and league_id != strict_league_id:
+            continue
+        if not (player_id and team_id and league_id and season):
             continue
 
-        # Build tuple in column order. API misspells "appearences".
         rows.append((
-            player_id, team_id, league_id, season,
-            games.get("position"), games.get("number"),
-            games.get("appearences"), games.get("lineups"), games.get("minutes"),
-            goals.get("total"), goals.get("assists"), goals.get("saves"),
-            drib.get("attempts"), drib.get("success"),
-            fouls.get("committed"), tackles.get("total"),
-            passes.get("total"), passes.get("key"), passes.get("accuracy"),
-            cards.get("yellow"), cards.get("red")
+            player_id,                         # player_id
+            team_id,                           # team_id
+            league_id,                         # league_id
+            season,                            # season (int from JSON)
+            games.get("position"),             # position
+            _to_int(games.get("number")),      # number
+            _to_int(games.get("appearences")), # appearances (API typo)
+            _to_int(games.get("lineups")),     # lineups
+            _to_int(games.get("minutes")),     # minutes_played
+            _to_int(goals.get("total")),       # goals
+            _to_int(goals.get("assists")),     # assists
+            _to_int(goals.get("saves")),       # saves (GK)
+            _to_int(drib.get("attempts")),     # dribbles_attempts
+            _to_int(drib.get("success")),      # dribbles_success
+            _to_int(fouls.get("committed")),   # fouls_committed
+            _to_int(tackles.get("total")),     # tackles
+            _to_int(passes.get("total")),      # passes_total
+            _to_int(passes.get("key")),        # passes_key
+            _to_num(passes.get("accuracy")),   # pass_accuracy (numeric)
+            _to_int(cards.get("yellow")),      # yellow_cards
+            _to_int(cards.get("red")),         # red_cards
         ))
 
     return rows
 
-# ───────────────────────────── DB insert  ───────────────────────────────
+
+
+
+# ----------------------------- DB insert --------------------------------
+
 def insert_chunk(cur, rows: List[Tuple]) -> None:
-    """
-    Bulk-insert buffered rows into **stg_player_season_stats**.
-    Adds an `is_valid = true` flag to each VALUES group.
-    """
+    """Bulk-insert buffered rows into stg_player_season_stats."""
     if not rows:
         return
-
-    # Build "(%s,%s,…,true)" placeholders × len(rows)
-    placeholders = ", ".join(
-        "(" + ", ".join(["%s"] * len(rows[0])) + ", true)" for _ in rows
+    cols = (
+        "player_id, team_id, league_id, season, "
+        "position, number, appearances, lineups, minutes_played, "
+        "goals, assists, saves, dribbles_attempts, dribbles_success, "
+        "fouls_committed, tackles, passes_total, passes_key, pass_accuracy, "
+        "yellow_cards, red_cards"
     )
-    flat_values = [val for row in rows for val in row]
+    placeholder = "(" + ", ".join(["%s"] * 21) + ")"
+    sql = f"INSERT INTO stg_player_season_stats ({cols}) VALUES " + ", ".join([placeholder] * len(rows))
+    flat = [v for row in rows for v in row]
+    cur.execute(sql, tuple(flat))
 
-    cur.execute(f"""
-        INSERT INTO stg_player_season_stats (
-          player_id, team_id, league_id, season,
-          position, number,
-          appearances, lineups, minutes_played,
-          goals, assists, saves,
-          dribbles_attempts, dribbles_success,
-          fouls_committed, tackles,
-          passes_total, passes_key, pass_accuracy,
-          yellow_cards, red_cards,
-          is_valid
-        )
-        VALUES {placeholders}
-    """, tuple(flat_values))
 
-# ─────────────────────────────── main  ──────────────────────────────────
-def main() -> None:
-    """
-    • Parse CLI flags.
-    • Resolve latest run folder for chosen mode / league / season.
-    • Stream JSON blobs → parse → buffer → insert.
-    """
-    # ---- CLI parsing ---------------------------------------------------
-    import argparse
-    cli = argparse.ArgumentParser("Load player-season stats into staging.")
-    cli.add_argument("--league_folder", required=True)
-    cli.add_argument("--season_str",    required=True)
-    cli.add_argument("--run_mode", choices=["initial", "incremental"],
-                     default="incremental")
-    cli.add_argument("--player_list_path")  # ignored; keeps Bash cmd symmetric
-    args = cli.parse_args()
+# -------------------------------- main ----------------------------------
 
-    league_folder, season_str, run_mode = args.league_folder, args.season_str, args.run_mode
+def main():
+    ap = argparse.ArgumentParser(description="Load player season stats into staging from Blob snapshots (DB-driven).")
+    ap.add_argument("--window", required=True,
+                    help="summer | winter | latest | explicit label (e.g., summer_20250930_2130)")
+    ap.add_argument("--league_id", type=int, help="Optional single league to process (e.g., 39)")
+    ap.add_argument("--league_ids", help="Optional comma-separated list to process (e.g., 39,78)")
+    ap.add_argument("--no_strict_competition", action="store_true",
+                    help="If set, do NOT filter statistics[] by the league_id from DB.")
+    args = ap.parse_args()
+
+    # Parse optional multi-select list (ignored if --league_id provided)
+    subset_list = None
+    if args.league_id is not None:
+        subset_single = args.league_id
+    else:
+        subset_single = None
+        if args.league_ids:
+            subset_list = [int(x.strip()) for x in args.league_ids.split(",") if x.strip()]
+
+    # Build worklist from DB (no manual typing of folder/season)
+    work = get_league_worklist(league_id=subset_single, league_ids=subset_list)
+    if not work:
+        print("No enabled, current leagues matched. Nothing to do.")
+        return
+
     container = "raw"
+    cc = _bsc().get_container_client(container)
 
-    # ---- Resolve latest run folder ------------------------------------
-    base_prefix = f"players/{run_mode}/{league_folder}/{season_str}/"
-    client = _blob_client().get_container_client(container)
+    overall_files = overall_rows = overall_skipped = 0
+    leagues_done = 0
 
-    # Gather run_<date> folders that *actually* contain player_details JSONs.
-    valid_runs = set()
-    for blob in client.list_blobs(name_starts_with=base_prefix):
-        parts = blob.name.split("/")
-        # Expecting: players / mode / league / season / <run> / player_details / file.json
-        if (
-            len(parts) >= 7
-            and parts[5] == "player_details"      # ensures we’re not in /squads/
-            and parts[-1].endswith(".json")
-        ):
-            valid_runs.add(parts[4])              # collect the <run> folder
+    for row in work:
+        league_id  = row["league_id"]
+        folder     = row["folder_alias"]
+        season_str = row["season_str"]
 
-    if not valid_runs:
-        log.error("No player_details blobs found under %s", base_prefix)
-        sys.exit(1)
+        base = f"players/{folder}/{season_str}"
+        try:
+            snapshot = _resolve_snapshot(cc, base, args.window)
+        except Exception as e:
+            print(f"[league {league_id}] No snapshot for window '{args.window}' under {base}/ → SKIP ({e})")
+            continue
 
-    latest = max(valid_runs)  # string compare OK (YYYY-MM-DD)
-    blob_prefix = (
-        f"{base_prefix}{latest}/player_details" if run_mode == "initial"
-        else f"{base_prefix}{latest}"
-    )
-    log.info("Resolved Blob prefix → %s", blob_prefix)
+        details_prefix = f"{base}/{snapshot}/player_details/"
+        strict_filter = None if args.no_strict_competition else league_id
 
-    # ---- Iterate blobs & load DB --------------------------------------
-    buffer: List[Tuple] = []
-    files_processed = rows_inserted = files_skipped = 0
+        print(f"\n=== League {league_id} • folder='{folder}' • season={season_str}")
+        print(f"    Snapshot: {snapshot}")
+        print(f"    Reading:  {details_prefix}")
 
-    with get_db_connection() as conn:
-        cur = conn.cursor()
+        files = rows_inserted = skipped = 0
+        buffer: List[Tuple] = []
 
-        for blob in client.list_blobs(name_starts_with=blob_prefix):
-            if not blob.name.endswith(".json"):
-                continue  # skip directory placeholders
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            for blob in cc.list_blobs(name_starts_with=details_prefix):
+                name = blob.name
+                if not name.endswith(".json"):
+                    continue
+                files += 1
+                try:
+                    payload = _fetch_json(container, name)
+                    rows = parse_stats_rows(payload, strict_filter)
+                    if rows:
+                        buffer.extend(rows)
+                        if len(buffer) >= CHUNK_SIZE:
+                            insert_chunk(cur, buffer)
+                            conn.commit()
+                            rows_inserted += len(buffer)
+                            buffer.clear()
+                    else:
+                        skipped += 1
+                except Exception as e:
+                    print(f"    ! Error parsing {name}: {e}")
+                    skipped += 1
 
-            files_processed += 1
-            try:
-                rows = parse_stats_rows(_fetch_blob_json(container, blob.name))
+            if buffer:
+                insert_chunk(cur, buffer)
+                conn.commit()
+                rows_inserted += len(buffer)
+                buffer.clear()
 
-                if rows:
-                    buffer.extend(rows)
-                    # Flush buffer when threshold hit
-                    if len(buffer) >= CHUNK_SIZE:
-                        insert_chunk(cur, buffer)
-                        conn.commit()
-                        rows_inserted += len(buffer)
-                        buffer.clear()
-                else:
-                    files_skipped += 1  # no stats rows parsed
+        print(f"    → files processed: {files}, rows inserted: {rows_inserted}, skipped/errors: {skipped}")
 
-            except Exception as exc:
-                log.warning("Error parsing %s → %s", blob.name, exc)
-                files_skipped += 1
+        leagues_done   += 1
+        overall_files  += files
+        overall_rows   += rows_inserted
+        overall_skipped+= skipped
 
-        # Final flush
-        if buffer:
-            insert_chunk(cur, buffer)
-            conn.commit()
-            rows_inserted += len(buffer)
+    # Summary
+    print("\n===== STG LOAD SUMMARY (player_season_stats) =====")
+    print(f"Leagues processed : {leagues_done}")
+    print(f"Files processed   : {overall_files}")
+    print(f"Rows inserted     : {overall_rows}")
+    print(f"Files skipped     : {overall_skipped}")
+    print("Done.")
 
-    # ---- Summary ------------------------------------------------------
-    log.info("──── STAGING LOAD SUMMARY (player_season_stats) ────")
-    log.info("League / Season      : %s / %s", league_folder, season_str)
-    log.info("Run mode             : %s", run_mode)
-    log.info("Blob prefix used     : %s", blob_prefix)
-    log.info("JSON files processed : %d", files_processed)
-    log.info("Rows inserted        : %d", rows_inserted)
-    log.info("Files skipped/errors : %d", files_skipped)
-    log.info("Finished stg load – OK")
 
-# ─────────────────────────── bootstrap  ────────────────────────────────
 if __name__ == "__main__":
     main()
