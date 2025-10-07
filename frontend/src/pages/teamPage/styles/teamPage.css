@@ -1,6 +1,7 @@
 /* src/pages/teamPage/styles/teamPage.css
    -----------------------------------------------------------------------------
-   Team Page – Team Form now spans the card evenly with minimal side gutters
+   Team Page – Team Form & Next Match cards are now *namespaced* so their
+   outline/background/header bar can’t be overridden by any global `.card` CSS.
    -------------------------------------------------------------------------- */
 
 /* Page shell */
@@ -60,50 +61,49 @@
 }
 @media (max-width: 880px) { .summary-grid { grid-template-columns: 1fr; } }
 
-.card {
+/* IMPORTANT: Namespace the card styles so global `.card` rules elsewhere cannot
+   strip our background/border/title bar. */
+.team-page .card {
   background: rgba(31,41,55,0.7);
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.12);
   border-radius: 12px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   min-height: 160px;
   height: 100%;
+  box-shadow: 0 6px 18px rgba(0,0,0,.25);
 }
-.card-title {
+
+.team-page .card-title {
   padding: .7rem 1rem;
-  background: rgba(255,255,255,0.05);
-  border-bottom: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.06);
+  border-bottom: 1px solid rgba(255,255,255,0.12);
   font-weight: 700;
   display: flex; align-items: center; justify-content: space-between;
 }
-.card-body { padding: .9rem 1rem; }
+
+.team-page .card-body { padding: .9rem 1rem; }
 .right-faint { font-weight: 500; opacity: .7; font-size: .9rem; }
 
 /* ───────────── TEAM FORM (fills width, small side gutters) ───────────── */
 .form-card { min-height: auto; }
 
-/* Stretch across the card: 5 equal columns that expand with the card.
-   Clamp side padding so first/last aren’t glued to the border. */
-/* Team form row — center with larger, even side space */
-/* Team form: even left/right gutters + even spacing */
 /* Team form: 5 equal columns + even side gutters */
 .form-card .form-row{
   display: grid;
   grid-template-columns: repeat(5, minmax(84px, 1fr));
   justify-items: center;
   align-items: flex-start;
-  column-gap: clamp(20px, 4vw, 44px);   /* space between items */
+  column-gap: clamp(20px, 4vw, 44px);
   width: 100%;
-  padding: 14px 56px 16px;              /* ← change 56px to grow/shrink side gutters */
+  padding: 14px 56px 16px;
   box-sizing: border-box;
 }
 
-
-
 /* Stack chip over crest, centered */
 .form-col{
-  width: auto;                       /* let grid set width */
+  width: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
