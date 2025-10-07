@@ -2,7 +2,7 @@ import React from "react";
 import { FaLinkedin } from "react-icons/fa";
 import "./styles/footer.css";
 
-const LINKEDIN_URL = "https://www.linkedin.com/feed/"; // <- put your profile
+const LINKEDIN_URL = "https://www.linkedin.com/feed/";
 
 export default function Footer() {
   const year = new Date().getFullYear();
@@ -12,7 +12,6 @@ export default function Footer() {
       <div className="ft-bar">
         <div className="ft-left">© {year} Footysphere</div>
 
-        {/* decorative (non-clickable) legal line */}
         <div className="ft-center" aria-hidden="true">
           <span>Terms of use</span>
           <span className="ft-sep">•</span>

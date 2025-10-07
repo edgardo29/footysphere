@@ -1,4 +1,3 @@
-// src/pages/leaguePage/StandingsTab.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import "./styles/standingsTab.css";
@@ -42,7 +41,6 @@ export default function StandingsTab({ leagueId, season }) {
     return () => ctrl.abort();
   }, [leagueId, season]);
 
-  // Build groups map
   const groups = useMemo(() => {
     const map = new Map();
     for (const r of rows) {
@@ -55,48 +53,37 @@ export default function StandingsTab({ leagueId, season }) {
     );
   }, [rows]);
 
-  // If there is any non-empty label OR more than one group, treat as multi-group
   const isMultiGroup = useMemo(
     () => groups.length > 1 || groups.some(([label]) => label !== ""),
     [groups]
   );
 
-  // Keep only the useful part of the label (e.g., "Eastern Conference")
   function cleanGroupLabel(label = "") {
     let t = String(label).trim();
     if (!t) return t;
-
-    // Prefer last segment after comma or dash (often where "Eastern/Western" lives)
     if (t.includes(",")) t = t.split(",").pop().trim();
     if (t.includes(" - ")) t = t.split(" - ").pop().trim();
-
-    // Drop season patterns like 2025 or 2025/26 or 2025-26
     t = t.replace(/\b20\d{2}(?:[\/\-]\d{2})?\b/g, "").trim();
-
-    // Drop leftover league name prefixes if present
     t = t.replace(/^\s*(MLS|La Liga|Serie A|Premier League)\s*/i, "").trim();
-
-    // Clean stray punctuation
     t = t.replace(/^[,–-]\s*/, "").replace(/\s{2,}/g, " ").trim();
-    return t || label; // fallback to original if we stripped everything
+    return t || label;
   }
 
-  if (loading) return <p className="loading">Loading standings…</p>;
-  if (err) return <p className="error">{err}</p>;
-  if (!rows.length) return <p className="empty">No standings available.</p>;
+  if (loading) return <p className="muted">Loading standings…</p>;
+  if (err) return <p className="muted">{err}</p>;
+  if (!rows.length) return <p className="muted">No standings available.</p>;
 
   return (
     <div className="standings-tab">
       {groups.map(([label, teams]) => (
         <section key={label || "main"} className="table-block">
-          {/* For multi-group leagues only, show a small right-aligned chip */}
           {isMultiGroup ? (
             <div className="table-header compact">
               <span className="group-chip">{cleanGroupLabel(label)}</span>
             </div>
           ) : null}
 
-          <div className="table-wrap">
+          <div className="table-wrap tile">
             <table className="standings-table">
               <colgroup>
                 <col className="col-pos" />
@@ -129,7 +116,7 @@ export default function StandingsTab({ leagueId, season }) {
                   <tr key={`${team.team_id}-${team.position}`}>
                     <td>{team.position ?? ""}</td>
 
-                    {/* TEAM cell is the only navigation affordance */}
+                    {/* TEAM cell (only clickable cell) */}
                     <td className="team-cell">
                       {team.team_id ? (
                         <Link
@@ -140,6 +127,25 @@ export default function StandingsTab({ leagueId, season }) {
                           aria-label={`Open ${team.team_name} team page`}
                         >
                           <div className="team-wrap">
+                            {/* Crest chip wrapper — same as Weekly tab */}
+                            <span className="crest-chip">
+                              {team.team_logo_url ? (
+                                <img
+                                  src={team.team_logo_url}
+                                  alt={`${team.team_name} logo`}
+                                  className="team-logo"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <span className="team-logo placeholder" aria-hidden="true" />
+                              )}
+                            </span>
+                            <span className="team-name">{team.team_name}</span>
+                          </div>
+                        </Link>
+                      ) : (
+                        <div className="team-wrap">
+                          <span className="crest-chip">
                             {team.team_logo_url ? (
                               <img
                                 src={team.team_logo_url}
@@ -148,29 +154,9 @@ export default function StandingsTab({ leagueId, season }) {
                                 loading="lazy"
                               />
                             ) : (
-                              <div
-                                className="team-logo placeholder"
-                                aria-hidden="true"
-                              />
+                              <span className="team-logo placeholder" aria-hidden="true" />
                             )}
-                            <span className="team-name">{team.team_name}</span>
-                          </div>
-                        </Link>
-                      ) : (
-                        <div className="team-wrap">
-                          {team.team_logo_url ? (
-                            <img
-                              src={team.team_logo_url}
-                              alt={`${team.team_name} logo`}
-                              className="team-logo"
-                              loading="lazy"
-                            />
-                          ) : (
-                            <div
-                              className="team-logo placeholder"
-                              aria-hidden="true"
-                            />
-                          )}
+                          </span>
                           <span className="team-name">{team.team_name}</span>
                         </div>
                       )}

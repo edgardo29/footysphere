@@ -11,8 +11,11 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  
 }
+
+/* allow pages to fill the viewport and remove default body spacing */
+html, body, #root { height: 100%; }
+body { margin: 0; }
 
 a {
   font-weight: 500;
@@ -24,7 +27,7 @@ a:hover {
 }
 
 body {
-
+  /* keep as-is so page-specific layout controls widths */
 }
 
 #root {
@@ -33,7 +36,6 @@ body {
   /* margin: 0 auto; */
   /* padding: 2rem; */
   /* text-align: center; */
-
 }
 
 h1 {

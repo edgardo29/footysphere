@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import "../../App.css";
 import "./styles/homePage.css";
-import "./styles/footer.css"; // ← add this line
+import "./styles/footer.css";
 import Footer from "./Footer";
 
 import { Link, useNavigate } from "react-router-dom";
@@ -12,7 +12,7 @@ import LeagueModal from "./LeagueModal";
 
 import { FaTrophy, FaCalendarAlt } from "react-icons/fa";
 
-// small helper to try multiple endpoints safely
+// Helper to try multiple endpoints safely
 async function firstPopularThatWorks(urls) {
   for (const u of urls) {
     try {

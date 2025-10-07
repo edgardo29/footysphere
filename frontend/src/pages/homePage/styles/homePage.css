@@ -111,7 +111,7 @@
 .view-more-button::after{ content:"→"; font-size:1rem; transition:transform .15s; margin-left:4px; }
 .view-more-button:hover::after{ transform:translateX(3px); }
 
-/* ===== Today's Matches (FINAL — big, aligned crests) ===== */
+/* ===== Today's Matches ===== */
 .todays-leagues-grid{
   display:grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -12,7 +12,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/league/:leagueId" element={<LeaguePage />} />
-        <Route path="/teams/:teamId" element={<TeamPage />} /> {/* NEW */}
+        <Route path="/teams/:teamId" element={<TeamPage />} /> 
         <Route path="/match/:matchId" element={<MatchDetailsPage />} />
         <Route path="/health-test" element={<HealthTest />} />
       </Routes>
