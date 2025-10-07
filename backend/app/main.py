@@ -14,6 +14,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from .routers import homepage
 from .routers import leaguesPage
 from .routers import teamPage
+from .routers import matchDetailsPage   
+
 
 # ─────────── logging config ───────────
 LOG_DIR = Path(__file__).resolve().parent.parent / "logs"
@@ -56,3 +58,6 @@ def health():
 app.include_router(homepage.router)
 app.include_router(leaguesPage.router)
 app.include_router(teamPage.router)
+app.include_router(matchDetailsPage.router)
+
+
