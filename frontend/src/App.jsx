@@ -3,7 +3,7 @@ import HomePage from "./pages/homePage/HomePage";
 import LeaguePage from "./pages/leaguePage/LeaguePage";
 import HealthTest from "./pages/HealthTest";
 import TeamPage from "./pages/teamPage/TeamPage"; // NEW
-import MatchDetails from "./pages/matchDetails/MatchDetails";
+import MatchDetailsPage from "./pages/matchDetailsPage/MatchDetailsPage";
 
 
 export default function App() {
@@ -13,7 +13,7 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/league/:leagueId" element={<LeaguePage />} />
         <Route path="/teams/:teamId" element={<TeamPage />} /> {/* NEW */}
-        <Route path="/match/:matchId" element={<MatchDetails />} />
+        <Route path="/match/:matchId" element={<MatchDetailsPage />} />
         <Route path="/health-test" element={<HealthTest />} />
       </Routes>
     </Router>

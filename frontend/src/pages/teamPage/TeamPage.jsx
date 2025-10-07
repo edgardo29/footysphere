@@ -249,7 +249,7 @@ export default function TeamPage() {
             </Link>
 
             {summary?.league?.id ? (
-              <Link className="subtle-link" to={`/leagues/${summary.league.id}`} title="View league standings">
+              <Link className="subtle-link" to={`/league/${summary.league.id}`} title="View league standings">
                 View table →
               </Link>
             ) : null}
