@@ -15,7 +15,7 @@ def create_players_table():
         nationality    VARCHAR(100),
         height         VARCHAR(10),
         weight         VARCHAR(10),
-        photo_url      TEXT
+        photo_url      TEXT,
         load_date     TIMESTAMP(0) NOT NULL DEFAULT now(),
         upd_date      TIMESTAMP(0) NOT NULL DEFAULT now()
     );
