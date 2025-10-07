@@ -14,7 +14,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from .routers import homepage
 from .routers import leaguesPage
 from .routers import teamPage
-from .routers import matchDetailsPage   
+from .routers import matchDetailsPage  
+from .routers import leagueModal 
+
 
 
 # ─────────── logging config ───────────
@@ -59,5 +61,6 @@ app.include_router(homepage.router)
 app.include_router(leaguesPage.router)
 app.include_router(teamPage.router)
 app.include_router(matchDetailsPage.router)
+app.include_router(leagueModal.router)
 
 
