@@ -1,27 +1,58 @@
+// src/pages/homePage/HomePage.jsx
 import React, { useState, useEffect, useMemo } from "react";
 import "../../App.css";
 import "./styles/homePage.css";
+import "./styles/footer.css"; // ← add this line
+import Footer from "./Footer";
 
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import NavBar from "./NavBar";
 import TopBanner from "./TopBanner";
+import LeagueModal from "./LeagueModal";
 
 import { FaTrophy, FaCalendarAlt } from "react-icons/fa";
+
+// small helper to try multiple endpoints safely
+async function firstPopularThatWorks(urls) {
+  for (const u of urls) {
+    try {
+      const res = await fetch(u);
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (Array.isArray(data) && data.length) return data;
+    } catch {}
+  }
+  return [];
+}
 
 export default function HomePage() {
   const [leagues, setLeagues] = useState([]);
   const [matchesByLeague, setMatchesByLeague] = useState({});
   const [loadingLeagues, setLoadingLeagues] = useState(true);
   const [loadingMatches, setLoadingMatches] = useState(true);
+  const [showLeagueModal, setShowLeagueModal] = useState(false);
 
+  const navigate = useNavigate();
+
+  // Popular leagues (DB-ordered endpoint first)
   useEffect(() => {
-    fetch("/api/leagues/popular")
-      .then((res) => res.json())
-      .then((data) => setLeagues(Array.isArray(data) ? data : []))
-      .catch(console.error)
-      .finally(() => setLoadingLeagues(false));
+    let mounted = true;
+    (async () => {
+      setLoadingLeagues(true);
+      const data = await firstPopularThatWorks([
+        "/api/leagues/popular",
+        "/api/leagues/popular?limit=5",
+        "/api/leagueModal/popular?limit=5",
+      ]);
+      if (mounted) {
+        setLeagues((data || []).slice(0, 5));
+        setLoadingLeagues(false);
+      }
+    })();
+    return () => { mounted = false; };
   }, []);
 
+  // Today's matches
   useEffect(() => {
     fetch("/api/matches/today")
       .then((res) => res.json())
@@ -48,14 +79,16 @@ export default function HomePage() {
     return arr.slice(0, 10);
   }, [allMatches]);
 
+  const handleSelectLeague = (lg) => {
+    setShowLeagueModal(false);
+    navigate(`/league/${lg.id}`);
+  };
+
   return (
     <div className="app">
       <NavBar />
-
-      {/* Top banner */}
       <TopBanner tickerMatches={tickerMatches} visual="orbs" />
 
-      {/* ================= MAIN ================= */}
       <main className="main-content">
         {/* Popular Leagues */}
         <section id="leagues" className="section-block">
@@ -92,7 +125,15 @@ export default function HomePage() {
           </div>
 
           <div className="view-more-container">
-            <a href="/leagues" className="view-more-button">View More</a>
+            <button
+              type="button"
+              className="view-more-button"
+              onClick={() => setShowLeagueModal(true)}
+              aria-label="View more leagues"
+              title="View more leagues"
+            >
+              View More
+            </button>
           </div>
         </section>
 
@@ -141,11 +182,7 @@ export default function HomePage() {
                             minute: "2-digit",
                           })}
                         </span>
-                        <span
-                          className={`match-status ${
-                            m.status === "Live" ? "live" : ""
-                          }`}
-                        >
+                        <span className={`match-status ${m.status === "Live" ? "live" : ""}`}>
                           {m.status}
                         </span>
                       </div>
@@ -171,6 +208,14 @@ export default function HomePage() {
           </div>
         </section>
       </main>
+
+      <Footer />
+
+      <LeagueModal
+        open={showLeagueModal}
+        onClose={() => setShowLeagueModal(false)}
+        onSelect={handleSelectLeague}
+      />
     </div>
   );
 }

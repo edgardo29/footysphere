@@ -1,44 +1,36 @@
-import React, { useState } from "react";
+import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import "./styles/navBar.css"; // Ensure styles are applied globally
+import "./styles/navBar.css";
 
 export default function NavBar() {
-  const location = useLocation();
-  const [activeTab, setActiveTab] = useState(
-    location.pathname.includes("/news") ? "news" : "leagues"
-  );
+  const { pathname } = useLocation();
+  const isHome = pathname === "/";
 
   return (
-    <header className="header">
-      <div className="header-content">
-        {/* Left Side - Logo */}
-        <div className="logo-area">
-          <div className="logo-placeholder"></div>
-          <span className="logo-text">FootySphere</span>
-        </div>
+    <header className="nb">
+      <div className="nb__inner">
+        {/* Brand */}
+        <Link to="/" className="nb__brand" aria-label="FootySphere home">
+          <span className="nb__logo-wrap">
+            {/* transparent PNG sits on a colored chip so it’s visible */}
+            <img
+              src="/logo.png"   // /public/logo.png
+              alt=""
+              className="nb__logo-img"
+              width={20}
+              height={20}
+            />
+          </span>
+          <span className="nb__name">FootySphere</span>
+        </Link>
 
-        {/* Center - Navigation Links */}
-        <nav className="nav-links">
-          <Link
-            to="/"
-            className={activeTab === "leagues" ? "nav-button active" : "nav-button"}
-            onClick={() => setActiveTab("leagues")}
-          >
-            <svg className="icon" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M10 0l2.09 6.26h6.09l-4.63 3.88 1.59 6.26L10 12.52l-5.14 3.88 1.59-6.26L1 6.26h6.09L10 0z" />
+        {/* Primary nav (News removed) */}
+        <nav className="nb__nav" aria-label="Primary">
+          <Link to="/" className={`nb__btn ${isHome ? "is-active" : ""}`}>
+            <svg className="nb__icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+              <path d="M10 1.25l2.18 5.38 5.82.18-4.6 3.68 1.64 5.61L10 13.7 4.96 16.1l1.64-5.61-4.6-3.68 5.82-.18L10 1.25z"/>
             </svg>
-            Leagues
-          </Link>
-
-          <Link
-            to="/news"
-            className={activeTab === "news" ? "nav-button active" : "nav-button"}
-            onClick={() => setActiveTab("news")}
-          >
-            <svg className="icon" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M4 2h12v2H4V2zm-2 3h16v11H2V5zm2 2v7h2V7H4zm4 0v2h8V7H8zm0 4v2h8v-2H8zm0 4v1h8v-1H8z" />
-            </svg>
-            News
+            <span>Leagues</span>
           </Link>
         </nav>
       </div>

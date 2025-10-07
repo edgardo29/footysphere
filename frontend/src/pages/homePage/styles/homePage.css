@@ -207,3 +207,10 @@
   border-radius:6px; background: rgba(148,163,184,0.12); border: 1px solid rgba(255,255,255,0.12);
 }
 .match-status.live{ color:#16a34a; background: rgba(22,163,74,0.12); border-color: rgba(22,163,74,0.35); }
+
+
+.view-more-button{
+  appearance:none; -webkit-appearance:none;
+  text-decoration:none;
+}
+
