@@ -5,7 +5,7 @@ import "./styles/weeklyMatchesTab.css";
 function getDefaultWeekStartISO() {
   const d = new Date();
   const day = d.getDay(); // 0=Sun..6=Sat
-  const diff = day === 0 ? -6 : 1 - day; // move to Monday
+  const diff = day === 0 ? -6 : 1 - day; // to Monday
   const monday = new Date(d);
   monday.setDate(d.getDate() + diff);
   monday.setHours(0, 0, 0, 0);
@@ -15,7 +15,6 @@ function getDefaultWeekStartISO() {
 /** Helpers for rendering dates */
 function dayKey(dateStr) {
   const d = new Date(dateStr);
-  // yyyy-mm-dd key for grouping (kept same behavior as before)
   return d.toISOString().slice(0, 10);
 }
 function dayLabel(dateStr) {
@@ -73,9 +72,7 @@ export default function WeeklyMatchesTab({ leagueId }) {
       if (!map.has(k)) map.set(k, []);
       map.get(k).push(m);
     }
-    return Array.from(map.entries()).sort(([a], [b]) =>
-      a < b ? -1 : a > b ? 1 : 0
-    );
+    return Array.from(map.entries()).sort(([a,], [b,]) => (a < b ? -1 : a > b ? 1 : 0));
   }, [rows]);
 
   const weekEnd = useMemo(() => {
@@ -84,49 +81,54 @@ export default function WeeklyMatchesTab({ leagueId }) {
     return d.toISOString().slice(0, 10);
   }, [weekStartISO, days]);
 
-  if (loading) return <p className="loading">Loading weekly matches…</p>;
-  if (err) return <p className="error">{err}</p>;
+  if (loading) return <p className="muted wm-pad">Loading weekly matches…</p>;
+  if (err) return <p className="muted wm-pad">{err}</p>;
 
   return (
-    <div className="weekly-tab">
-      <div className="weekly-inner">
-        <div className="week-controls">
+    <div className="wm-tab">
+      <div className="wm-inner">
+        {/* Controls */}
+        <div className="wm-controls tile">
           <button
-            className="week-nav"
+            className="wm-nav"
+            type="button"
             onClick={() => {
               const d = new Date(weekStartISO + "T00:00:00");
               d.setDate(d.getDate() - 7);
               setWeekStartISO(d.toISOString().slice(0, 10));
             }}
+            aria-label="Previous week"
           >
             ← Prev
           </button>
 
-          <div className="week-range">
+          <div className="wm-range">
             {new Date(weekStartISO).toLocaleDateString()} —{" "}
             {new Date(weekEnd).toLocaleDateString()}
           </div>
 
           <button
-            className="week-nav"
+            className="wm-nav"
+            type="button"
             onClick={() => {
               const d = new Date(weekStartISO + "T00:00:00");
               d.setDate(d.getDate() + 7);
               setWeekStartISO(d.toISOString().slice(0, 10));
             }}
+            aria-label="Next week"
           >
             Next →
           </button>
         </div>
 
         {grouped.length === 0 ? (
-          <p className="empty">No matches scheduled in this range.</p>
+          <p className="tile wm-empty">No matches scheduled in this range.</p>
         ) : (
           grouped.map(([dayIso, matches]) => (
-            <section key={dayIso} className="day-block">
-              <div className="day-header">
-                <span className="day-pill">{dayLabel(dayIso)}</span>
-                <span className="day-count">{matches.length} matches</span>
+            <section key={dayIso} className="wm-day tile">
+              <div className="wm-day-header">
+                <span className="wm-day-pill">{dayLabel(dayIso)}</span>
+                <span className="wm-day-count">{matches.length} matches</span>
               </div>
 
               {matches.map((m) => {
@@ -139,45 +141,43 @@ export default function WeeklyMatchesTab({ leagueId }) {
                     });
 
                 return (
-                  <div key={m.id} className="match-card">
+                  <div key={m.id} className="wm-row">
                     {/* Home */}
-                    <div className="team-block">
-                      <div className="team-logo-wrap">
+                    <div className="wm-team">
+                      <div className="wm-logo-wrap">
                         <img
                           src={m.home_logo}
                           alt={m.home_name}
-                          className="team-logo"
+                          className="wm-logo"
+                          loading="lazy"
                         />
                       </div>
-                      <div className="team-info">
-                        <span className="team-name">{m.home_name}</span>
-                        <span className="team-place">Home</span>
+                      <div className="wm-team-info">
+                        <span className="wm-team-name">{m.home_name}</span>
+                        <span className="wm-team-place">Home</span>
                       </div>
                     </div>
 
-                    {/* Center (time or score) + status */}
-                    <div className="match-details">
-                      <span className="match-time">{centerText}</span>
-                      <span
-                        className={`match-status ${
-                          m.status === "Live" ? "live" : ""
-                        }`}
-                      >
+                    {/* Center */}
+                    <div className="wm-center">
+                      <span className="wm-time">{centerText}</span>
+                      <span className={`wm-status ${m.status === "Live" ? "live" : ""}`}>
                         {m.status}
                       </span>
                     </div>
 
                     {/* Away */}
-                    <div className="team-block right">
-                      <div className="team-info right-info">
-                        <span className="team-name">{m.away_name}</span>
-                        <span className="team-place">Away</span>
+                    <div className="wm-team right">
+                      <div className="wm-team-info right-info">
+                        <span className="wm-team-name">{m.away_name}</span>
+                        <span className="wm-team-place">Away</span>
                       </div>
-                      <div className="team-logo-wrap">
+                      <div className="wm-logo-wrap">
                         <img
                           src={m.away_logo}
                           alt={m.away_name}
-                          className="team-logo"
+                          className="wm-logo"
+                          loading="lazy"
                         />
                       </div>
                     </div>
@@ -191,3 +191,8 @@ export default function WeeklyMatchesTab({ leagueId }) {
     </div>
   );
 }
+
+
+
+
+
