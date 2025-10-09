@@ -42,7 +42,7 @@ SEASON_JINJA = (
 )
 
 with DAG(
-    dag_id="teams_venues_weekly_etl",
+    dag_id="teams_venues_etl",
     description="Teams & Venues ETL – assumes league_seasons already loaded",
     start_date=pendulum.datetime(2025, 1, 1, tz="UTC"),
     schedule="30 5 * * MON",     # Monday 05:30 UTC

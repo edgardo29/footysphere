@@ -26,7 +26,7 @@ ROOT = "{{ var.value.FOOTY_ROOT }}"
 logging.getLogger(__name__).info("ingest_leagues_dag parsed OK")
 
 with DAG(
-    dag_id="ingest_leagues",
+    dag_id="ingest_leagues_etl",
     start_date=pendulum.datetime(2025, 1, 1, tz="UTC"),
     # Kick off 30 min after discover (02:30), then hourly until 20:30
     schedule="30 2-20/1 * * *",

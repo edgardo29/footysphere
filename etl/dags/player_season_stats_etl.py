@@ -49,7 +49,7 @@ ENV = {
 ROOT = "{{ var.value.FOOTY_ROOT }}"  # e.g., /home/football_vmadmin/footysphere-repo/etl
 
 with DAG(
-    dag_id="player_season_stats_snapshot_etl",
+    dag_id="player_season_stats_etl",
     description="Snapshot → STG → CHECK → MERGE for player_season_stats (strict, manual).",
     start_date=pendulum.datetime(2025, 1, 1, tz="UTC"),
     schedule=None,                      # manual only
@@ -75,7 +75,7 @@ with DAG(
     load_to_stg = BashOperator(
         task_id="load_to_stg",
         bash_command=(
-            "$PYTHON " + ROOT + "/src/blob/load_stg_player_season_stats.py "
+            "$PYTHON " + ROOT + "/src/blob/load_data/load_stg_player_season_stats.py "
             "--window {{ dag_run.conf.get('window', 'summer') }}"
             "{% if dag_run.conf.get('league_id') %} --league_id {{ dag_run.conf['league_id'] }}{% endif %}"
             "{% if dag_run.conf.get('league_ids') %} --league_ids {{ dag_run.conf['league_ids'] }}{% endif %}"
@@ -91,17 +91,17 @@ with DAG(
     # 3) Validate staging (PROC wrapper prints vertical summary + per-rule counts).
     check_stg = BashOperator(
         task_id="check_stg",
-        bash_command="$PYTHON " + ROOT + "/test_scripts/call_check_stg_player_season_stats.py",
+        bash_command="$PYTHON " + ROOT + "/src/procs/check_stg_player_season_stats.py ",
         env=ENV,
         doc_md="Run DQ checks; write issues to **data_load_errors**; print per-rule counts.",
     )
 
     # 4) Upsert staging → prod (PROC wrapper prints inserted/updated totals).
-    merge_to_main = BashOperator(
-        task_id="merge_to_main",
-        bash_command="$PYTHON " + ROOT + "/test_scripts/call_update_player_season_stats.py",
+    update_main_table = BashOperator(
+        task_id="update_main_table",
+        bash_command="$PYTHON " + ROOT + "/src/procs/update_player_season_stats.py ",
         env=ENV,
         doc_md="MERGE **stg_player_season_stats** → **player_season_stats** (idempotent).",
     )
 
-    cleanup_stg >> load_to_stg >> check_stg >> merge_to_main
+    cleanup_stg >> load_to_stg >> check_stg >> update_main_table
