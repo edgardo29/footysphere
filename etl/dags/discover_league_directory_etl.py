@@ -26,7 +26,7 @@ logging.getLogger(__name__).info("discover_league_directory_dag parsed OK")
 
 # ───────────────────────────── DAG object ────────────────────────────
 with DAG(
-    dag_id="discover_league_directory",
+    dag_id="discover_league_directory_etl",
     start_date=pendulum.datetime(2025, 1, 1, tz="UTC"),
     # 02:00 UTC daily – adjust as needed
     schedule="0 2 1 * *",

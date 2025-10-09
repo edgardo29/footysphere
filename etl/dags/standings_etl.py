@@ -46,14 +46,14 @@ ROOT = "{{ var.value.FOOTY_ROOT }}"
 logging.getLogger(__name__).info("standings_full_etl DAG file parsed successfully")
 
 with DAG(
-    dag_id="standings_full_etl",
+    dag_id="standings_etl",
     description="ETL for league standings (DB-driven, group-aware, newest snapshot only)",
     start_date=pendulum.datetime(2025, 1, 1, tz="UTC"),
     catchup=False,
     # Schedule:
     #   Nightly 02:40 UTC → "40 2 * * *"
     #   Weekly (Sun 02:40 UTC) → "40 2 * * 0"  or use @weekly
-    schedule="40 2 * * *",
+    schedule="40 2 * * 0",
     default_args={
         "owner": "footysphere",
         "retries": 1,
@@ -64,26 +64,19 @@ with DAG(
 ) as dag:
 
     # 1) Fetch the current standings snapshots (DB-driven scope; no preseason)
-    #    Optional targeting: pass league_ids via Trigger DAG conf (string: "244,253,71")
     fetch_full_snapshot = BashOperator(
         task_id="fetch_full_snapshot",
         bash_command=(
             "$PYTHON "
             + ROOT
             + "/src/blob/fetch_data/fetch_standings.py "
-              "--mode full "
-              "--grace-days {{ var.value.STANDINGS_GRACE_DAYS | default(7) }} "
-              "--league-ids {{ dag_run.conf.get('league_ids', '') }}"
+            "--mode full "
+            "--grace-days {{ var.value.get('STANDINGS_GRACE_DAYS', 7) }} "
+            "{% if dag_run.conf.get('league_ids') %}--league-ids {{ dag_run.conf['league_ids'] }}{% endif %}"
         ),
         env=ENV,
-        doc_md="""
-        **Fetch (DB-driven):** Selects enabled, current, *in-season* league‑seasons.
-        Writes one JSON per league‑season under:
-        `raw/standings/{folder_alias}/{season_str}/full_YYYY-MM-DD_HH-MM.json`
-
-        *Optional targeted run:* Trigger with conf `{"league_ids":"244,253,71"}`.
-        """,
     )
+
 
     # 2) Truncate staging (standings) before load
     cleanup_stg = BashOperator(
@@ -120,7 +113,7 @@ with DAG(
         bash_command=(
             "$PYTHON "
             + ROOT
-            + "/src/procs/check_standings.py"
+            + "/src/procs/check_stg_standings.py"
         ),
         env=ENV,
         doc_md="Runs `CALL check_stg_standings()` and prints a per‑rule summary.",

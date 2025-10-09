@@ -1,86 +1,67 @@
 #!/usr/bin/env python3
 """
-fetch_match_events.py ───────────────────────────────────────────────────────────
+fetch_match_events.py
 
-A **single** script that covers both historical back-fills **and** recurring
-incremental refreshes of match-event data from the API-Football v3 endpoint.
+A single script that covers both historical back-fills and recurring incremental
+refreshes of match-event data from the API-Football v3 endpoint.
 
-The script deliberately leans on *explicit* parameters so it’s crystal-clear
-from the command line (or Airflow DAG) **what** is being fetched and **why**.
-
--------------------------------------------------------------------------------
-WHY KEEP TWO MODES IN ONE SCRIPT?
--------------------------------------------------------------------------------
-1. **Shared logic**           → Only one place to maintain auth, retry, and
-                                blob-upload code.
-2. **Fewer Airflow images**   → The same Docker image / venv can run back-fills
-                                and weekly updates; behaviour changes solely
-                                through CLI flags.
-3. **Consistent lineage**     → Both modes write to predictable, versioned
-                                folder paths under `raw/match_events/`, making
-                                it trivial to audit and to reload.
-
--------------------------------------------------------------------------------
-DIRECTORY STRUCTURE PRODUCED
--------------------------------------------------------------------------------
+Directory structure produced
+----------------------------
 raw/
 └─ match_events/
-   ├─ initial/                       # one-time, frozen back-fill per season
-   │   └─ <league>/<season>/events_<FIXTURE>.json
-   └─ incremental/                  # audit-friendly snapshots
-       └─ <YYYY-MM-DD>/             # → Airflow execution date ({{ ds }})
-           └─ <league>/<season>/events_<FIXTURE>.json
+   └─ <league_folder>/<season_folder>/<mode>/<mode>_<YYYYMMDD_HHMMSS>Z/
+      └─ events_<FIXTURE>.json
 
-  *Initial* remains immutable for historical replay.
-  *Incremental* holds every subsequent pull in date-partitioned folders so
-  analysts can see how the events evolved over time.
+Where:
+- <league_folder>   → from DB: league_catalog.folder_alias (already includes the ID)
+- <season_folder>   → YYYY_YY  (e.g., 2025_26)
+- <mode>            → initial | incremental
+- <YYYYMMDD_HHMMSS> → UTC timestamp per run (fresh snapshot every run)
 
--------------------------------------------------------------------------------
-EXAMPLE COMMANDS
--------------------------------------------------------------------------------
-# 1️⃣  Full season back-fill
-python fetch_match_events.py --season 2023 --mode initial
+Usage examples
+--------------
+# 1) Full season back-fill (auto season per league from DB) for specific leagues
+python fetch_match_events.py --mode initial --league-ids 94 203
 
-# 2️⃣  Weekly catch-up triggered by Airflow
-python fetch_match_events.py --season 2024 \
-       --mode incremental \
-       --run-date 2025-08-18 \
-       --lookback-days 8
+# 2) Incremental (windowed by finished fixtures in last N days), specific leagues
+python fetch_match_events.py --mode incremental --run-date 2025-10-09 --lookback-days 15 --league-ids 94 203
 
-Airflow would set `--run-date {{ ds }}` automatically so the folder name equals
-the execution date.
+# 3) Force one explicit season for all targeted leagues
+python fetch_match_events.py --season 2025 --mode initial --league-ids 94 203
 """
 
 from __future__ import annotations
 
 # ───────────────────────────────────────────────────────────────────────────────
-# Standard library imports
+# Stdlib
 # ───────────────────────────────────────────────────────────────────────────────
-import argparse               # Robust CLI handling
-import json                    # Pretty-printing API responses to disk
-import os                      # Path juggling
-import sys                     # Append helper modules to import path
-import time                    # Retry back-off
-import logging                 # Lightweight logging
-from datetime import date      # Default for --run-date when run outside Airflow
-from typing import List, Tuple # Precise return-type hints
-
-# Third-party imports
-import requests                            # HTTP client for API-Football
-from azure.storage.blob import BlobServiceClient  # Azure Blob SDK
+import argparse
+import json
+import os
+import sys
+import time
+import logging
+from datetime import date
+from typing import List, Tuple
 
 # ───────────────────────────────────────────────────────────────────────────────
-# Local helper imports – we add the project’s root folders to PYTHONPATH first
+# Third-party
+# ───────────────────────────────────────────────────────────────────────────────
+import requests
+from azure.storage.blob import BlobServiceClient  # type: ignore
+
+# ───────────────────────────────────────────────────────────────────────────────
+# Local imports / paths
 # ───────────────────────────────────────────────────────────────────────────────
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
-sys.path.append(os.path.join(ROOT_DIR, "config"))          # credentials.py, etc.
-sys.path.append(os.path.join(ROOT_DIR, "test_scripts"))    # get_db_conn helper
+sys.path.append(os.path.join(ROOT_DIR, "config"))
+sys.path.append(os.path.join(ROOT_DIR, "test_scripts"))
 
 from credentials import API_KEYS, AZURE_STORAGE  # type: ignore  # noqa: E402
 from get_db_conn import get_db_connection         # type: ignore  # noqa: E402
 
 # ───────────────────────────────────────────────────────────────────────────────
-# Basic logging (prints to stdout, visible in Airflow task log)
+# Logging — minimal: start + per-league saved + total
 # ───────────────────────────────────────────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO,
@@ -88,182 +69,325 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 log = logging.getLogger("match_events_fetch")
-
-# ADDITION: suppress verbose Azure SDK request/response logs
 logging.getLogger("azure").setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 # ───────────────────────────────────────────────────────────────────────────────
-# CLI PARSER – flags are self-documenting thanks to verbose help texts
+# CLI
 # ───────────────────────────────────────────────────────────────────────────────
 parser = argparse.ArgumentParser(
-    description="Fetch match-event JSON from API-Football and upload to Azure Blob Storage."
-                "  Handles both one-time back-fills (initial) and ongoing"
-                " incremental updates.")
-parser.add_argument("--season", required=True, type=int,
-                    help="Season start year, e.g. 2024 for the 2024/25 season.")
-parser.add_argument("--mode", choices=["initial", "incremental"], default="initial",
-                    help="\ninitial      → pull *every* fixture for the season into 'initial/' folder"
-                         "\nincremental → pull only recent / in-progress fixtures into"
-                         " 'incremental/<run-date>/' folder")
-parser.add_argument("--run-date", default=date.today().isoformat(),
-                    help="UTC date (YYYY-MM-DD) stamped into the incremental folder name."
-                         "  Airflow passes '{{ ds }}'. Ignored for initial mode.")
-parser.add_argument("--lookback-days", type=int, default=8,
-                    help="For incremental mode only: how many days back to crawl when checking"
-                         " finished fixtures for late data corrections.")
-parser.add_argument("--limit", type=int, default=None,
-                    help="Hard cap on number of fixtures processed – useful during dev/debug.")
+    description="Fetch match-event JSON from API-Football and upload to Azure Blob Storage. "
+                "Season is auto-resolved per league from DB unless --season is provided."
+)
+parser.add_argument(
+    "--season",
+    type=int,
+    help="Optional season start year (e.g., 2025 for 2025/26). If omitted, season is chosen per-league from DB.",
+)
+parser.add_argument(
+    "--mode",
+    choices=["initial", "incremental"],
+    default="initial",
+    help="initial → full season; incremental → finished fixtures in the recent lookback window."
+)
+parser.add_argument(
+    "--run-date",
+    default=date.today().isoformat(),
+    help="For logging/partitioning; not used in queries. Format YYYY-MM-DD. Defaults to today."
+)
+parser.add_argument(
+    "--lookback-days",
+    type=int,
+    default=8,
+    help="Incremental window length in days (finished fixtures)."
+)
+parser.add_argument(
+    "--limit",
+    type=int,
+    default=None,
+    help="Max fixtures to process (for testing)."
+)
+parser.add_argument(
+    "--league-ids",
+    nargs="+",
+    type=int,
+    metavar="LEAGUE_ID",
+    help="Optional space-separated league IDs, e.g. --league-ids 94 203. "
+         "If omitted, all enabled leagues (league_catalog.is_enabled) are used."
+)
 args = parser.parse_args()
+mode: str = args.mode.lower()
 
 # ───────────────────────────────────────────────────────────────────────────────
-# Derived CLI values (kept plainly named for readability later on)
-# ───────────────────────────────────────────────────────────────────────────────
-season_year: int = args.season
-season_folder: str = f"{season_year}_{(season_year % 100)+1:02d}"  # 2024 → 2024_25
-mode: str = args.mode.lower()  # normalise just in case caller used uppercase
-
-# ───────────────────────────────────────────────────────────────────────────────
-# AZURE BLOB SERVICE – single connection reused for all uploads
+# Azure Blob helpers
 # ───────────────────────────────────────────────────────────────────────────────
 account_url = f"https://{AZURE_STORAGE['account_name']}.blob.core.windows.net"
-blob_service = BlobServiceClient(account_url,
-                                 credential=AZURE_STORAGE["access_key"])
-RAW_CONTAINER = "raw"  # central bucket; change in one place if you rename it
-
+blob_service = BlobServiceClient(account_url, credential=AZURE_STORAGE["access_key"])
+RAW_CONTAINER = "raw"
 
 def blob_exists(path: str) -> bool:
-    """Return *True* if the given blob already exists in Azure.
-
-    We use this to skip API hits when rerunning a task for the same execution
-    date – important for idempotency in Airflow.
-    """
     return blob_service.get_blob_client(RAW_CONTAINER, path).exists()
 
-
 def upload_blob(path: str, payload: dict) -> None:
-    """Write a JSON payload to Azure in pretty-printed format.
-
-    `overwrite` stays **False** so accidental reruns don’t clobber history –
-    we treat each `<run-date>` folder as immutable.
-    """
-    bc = blob_service.get_blob_client(RAW_CONTAINER, path)
-    bc.upload_blob(json.dumps(payload, indent=2), overwrite=False)
+    blob_service.get_blob_client(RAW_CONTAINER, path)\
+        .upload_blob(json.dumps(payload, indent=2), overwrite=False)
 
 # ───────────────────────────────────────────────────────────────────────────────
-# DATABASE HELPER QUERIES
-# ───────────────────────────────────────────────────────────────────────────────
-def _get_fixtures_initial(conn, season: int, limit: int | None) -> List[Tuple[int, str]]:
-    """Every fixture for the specified season – used in *initial* back-fill."""
-    sql = """
-      SELECT f.fixture_id,
-             lower(replace(l.league_name,' ','_')) AS league_folder
-        FROM fixtures f
-        JOIN leagues l ON l.league_id = f.league_id
-       WHERE f.season_year = %s
-       ORDER BY f.fixture_id;
-    """
-    with conn.cursor() as cur:
-        cur.execute(sql, (season,))
-        rows = cur.fetchall()
-    return rows[:limit] if limit else rows
-
-
-def _get_fixtures_incremental(conn, season: int, lookback: int, limit: int | None) -> List[Tuple[int, str]]:
-    """Subset of fixtures needing refresh.
-
-    • Any fixture whose **fixture_date** fell inside the configured look-back window
-      (captures matches finished in the last few days).
-    • OR any fixture whose `status` is **not** 'FT' (full-time) yet – meaning the
-      game was still in-play or postponed when we last checked.
-    """
-    sql = """
-      SELECT f.fixture_id,
-             lower(replace(l.league_name,' ','_')) AS league_folder
-        FROM fixtures f
-        JOIN leagues l ON l.league_id = f.league_id
-       WHERE f.season_year = %s
-        AND f.fixture_date >= NOW() - INTERVAL '%s days'
-        AND f.fixture_date <= NOW()
-        AND f.status IN ('FT')  -- or ('FT','AET','PEN') if you use them
-       ORDER BY f.fixture_id;
-    """
-    with conn.cursor() as cur:
-        cur.execute(sql, (season, lookback))
-        rows = cur.fetchall()
-    return rows[:limit] if limit else rows
-
-# ───────────────────────────────────────────────────────────────────────────────
-# API-FOOTBALL HELPER – simple retry w/ back-off
+# API-Football
 # ───────────────────────────────────────────────────────────────────────────────
 API_URL = "https://v3.football.api-sports.io/fixtures/events"
 HEADERS = {"x-rapidapi-key": API_KEYS["api_football"]}
 
-
 def fetch_events_from_api(fixture_id: int) -> dict:
-    """Call the API up to 3 times before giving up.
-
-    A tiny delay (2s) between retries keeps us under the 300 req/min rate limit
-    even when the script is threaded later on.
-    """
     for attempt in range(1, 4):
         try:
-            resp = requests.get(
-                API_URL,
-                headers=HEADERS,
-                params={"fixture": fixture_id},
-                timeout=25,
-            )
-            resp.raise_for_status()
-            return resp.json()
+            r = requests.get(API_URL, headers=HEADERS, params={"fixture": fixture_id}, timeout=25)
+            r.raise_for_status()
+            return r.json()
         except Exception as exc:  # noqa: BLE001
             if attempt < 3:
-                log.warning("Retry %s for fixture %s due to %s", attempt, fixture_id, exc)
-                time.sleep(2)  # crude back-off
+                time.sleep(2)
             else:
                 raise RuntimeError(f"API failed for fixture {fixture_id}: {exc}") from exc
 
 # ───────────────────────────────────────────────────────────────────────────────
-# MAIN ORCHESTRATION LOGIC
+# DB helpers (named params only; uses league_catalog + league_seasons)
+# Returns tuples: (fixture_id, league_folder, season_folder)
+# ───────────────────────────────────────────────────────────────────────────────
+def _fixtures_initial(conn, forced_season: int | None, limit: int | None,
+                      league_ids: list[int] | None) -> List[Tuple[int, str, str]]:
+    """
+    Full-season back-fill candidates. season_folder is YYYY_YY (e.g., 2025_26).
+    """
+    use_filter = bool(league_ids)
+
+    scope_cte = (
+        """
+        WITH scope AS (
+          SELECT lc.league_id,
+                 lc.folder_alias AS league_folder,
+                 lc.last_season
+            FROM league_catalog lc
+           WHERE lc.is_enabled = TRUE
+        )
+        """
+        if not use_filter else
+        """
+        WITH scope AS (
+          SELECT lc.league_id,
+                 lc.folder_alias AS league_folder,
+                 lc.last_season
+            FROM league_catalog lc
+            JOIN (SELECT unnest(%(ids)s::int[]) AS league_id) i
+              ON i.league_id = lc.league_id
+        )
+        """
+    )
+
+    season_year_expr = (
+        "COALESCE(%(forced_season)s,"
+        "  COALESCE( "
+        "    (SELECT ls1.season_year FROM league_seasons ls1 "
+        "      WHERE ls1.league_id = s.league_id AND ls1.is_current = TRUE "
+        "      ORDER BY ls1.season_year DESC LIMIT 1), "
+        "    (SELECT ls2.season_year FROM league_seasons ls2 "
+        "      WHERE ls2.league_id = s.league_id "
+        "        AND CURRENT_DATE BETWEEN ls2.start_date AND ls2.end_date "
+        "      ORDER BY ls2.season_year DESC LIMIT 1), "
+        "    (SELECT MAX(ls3.season_year) FROM league_seasons ls3 "
+        "      WHERE ls3.league_id = s.league_id), "
+        "    s.last_season "
+        "  ) "
+        ")"
+    )
+
+    sql = f"""
+    {scope_cte},
+    chosen AS (
+      SELECT s.league_id,
+             s.league_folder,
+             {season_year_expr} AS season_year
+        FROM scope s
+    )
+    SELECT f.fixture_id,
+           c.league_folder,
+           to_char(c.season_year, 'FM9999') || '_' || to_char(mod(c.season_year, 100) + 1, 'FM00') AS season_folder
+      FROM fixtures f
+      JOIN chosen c
+        ON c.league_id = f.league_id
+       AND c.season_year = f.season_year
+     WHERE c.season_year IS NOT NULL
+     ORDER BY f.fixture_id;
+    """
+
+    params: dict = {"forced_season": forced_season}
+    if use_filter:
+        params["ids"] = league_ids
+
+    with conn.cursor() as cur:
+        cur.execute(sql, params)
+        rows = cur.fetchall()
+    return rows[:limit] if limit else rows
+
+
+def _fixtures_incremental(conn, forced_season: int | None, lookback_days: int, limit: int | None,
+                          league_ids: list[int] | None) -> List[Tuple[int, str, str]]:
+    """
+    Finished-fixture window (lookback) candidates. season_folder is YYYY_YY (e.g., 2025_26).
+    """
+    use_filter = bool(league_ids)
+
+    scope_cte = (
+        """
+        WITH scope AS (
+          SELECT lc.league_id,
+                 lc.folder_alias AS league_folder,
+                 lc.last_season
+            FROM league_catalog lc
+           WHERE lc.is_enabled = TRUE
+        )
+        """
+        if not use_filter else
+        """
+        WITH scope AS (
+          SELECT lc.league_id,
+                 lc.folder_alias AS league_folder,
+                 lc.last_season
+            FROM league_catalog lc
+            JOIN (SELECT unnest(%(ids)s::int[]) AS league_id) i
+              ON i.league_id = lc.league_id
+        )
+        """
+    )
+
+    season_year_expr = (
+        "COALESCE(%(forced_season)s,"
+        "  COALESCE( "
+        "    (SELECT ls1.season_year FROM league_seasons ls1 "
+        "      WHERE ls1.league_id = s.league_id AND ls1.is_current = TRUE "
+        "      ORDER BY ls1.season_year DESC LIMIT 1), "
+        "    (SELECT ls2.season_year FROM league_seasons ls2 "
+        "      WHERE ls2.league_id = s.league_id "
+        "        AND CURRENT_DATE BETWEEN ls2.start_date AND ls2.end_date "
+        "      ORDER BY ls2.season_year DESC LIMIT 1), "
+        "    (SELECT MAX(ls3.season_year) FROM league_seasons ls3 "
+        "      WHERE ls3.league_id = s.league_id), "
+        "    s.last_season "
+        "  ) "
+        ")"
+    )
+
+    sql = f"""
+    {scope_cte},
+    chosen AS (
+      SELECT s.league_id,
+             s.league_folder,
+             {season_year_expr} AS season_year
+        FROM scope s
+    )
+    SELECT f.fixture_id,
+           c.league_folder,
+           to_char(c.season_year, 'FM9999') || '_' || to_char(mod(c.season_year, 100) + 1, 'FM00') AS season_folder
+      FROM fixtures f
+      JOIN chosen c
+        ON c.league_id = f.league_id
+       AND c.season_year = f.season_year
+     WHERE c.season_year IS NOT NULL
+       AND f.fixture_date >= NOW() - make_interval(days => %(lookback)s)
+       AND f.fixture_date <= NOW()
+       AND f.status IN ('FT')
+     ORDER BY f.fixture_id;
+    """
+
+    params: dict = {"forced_season": forced_season, "lookback": int(lookback_days)}
+    if use_filter:
+        params["ids"] = league_ids
+
+    with conn.cursor() as cur:
+        cur.execute(sql, params)
+        rows = cur.fetchall()
+    return rows[:limit] if limit else rows
+
+# ───────────────────────────────────────────────────────────────────────────────
+# Main — unified, clean pathing & minimal logs
 # ───────────────────────────────────────────────────────────────────────────────
 def main() -> None:
-    """Pull fixture list → hit API → upload blobs."""
+    # fresh UTC snapshot every run
+    snapshot_ts = time.strftime("%Y%m%d_%H%M%S", time.gmtime())
+    run_segment = f"{mode}/{mode}_{snapshot_ts}Z"  # e.g., incremental/incremental_20251009_163109Z
+
+    season_scope = (f"{args.season}" if args.season is not None else "per-league (DB)")
+    leagues_scope = args.league_ids if args.league_ids else "ALL_ENABLED"
+
+    if args.league_ids:
+        log.info("Start %s | leagues=%s | season=%s | dest=raw/match_events/<league>/<season>/%s",
+                 mode, args.league_ids, season_scope, run_segment)
+    else:
+        log.info("Start %s | leagues=ALL_ENABLED | season=%s | dest=raw/match_events/<league>/<season>/%s",
+                 mode, season_scope, run_segment)
+
     conn = get_db_connection()
-
-    # 1. Pick fixture set & target folder depending on --mode
     if mode == "initial":
-        fixtures = _get_fixtures_initial(conn, season_year, args.limit)
-        folder_prefix = "match_events/initial"
-    else:  # incremental
-        fixtures = _get_fixtures_incremental(conn, season_year, args.lookback_days, args.limit)
-        folder_prefix = f"match_events/incremental/{args.run_date}"
-
+        fixtures = _fixtures_initial(
+            conn=conn,
+            forced_season=args.season,
+            limit=args.limit,
+            league_ids=args.league_ids,
+        )
+    else:
+        fixtures = _fixtures_incremental(
+            conn=conn,
+            forced_season=args.season,
+            lookback_days=args.lookback_days,
+            limit=args.limit,
+            league_ids=args.league_ids,
+        )
     conn.close()
 
-    if not fixtures:
-        log.info("No fixtures qualify (mode=%s, season=%s). Script exits.", mode, season_year)
-        return
+    # Only report leagues where we actually saved new files.
+    saved_by: dict[tuple[str, str], int] = {}  # {(league_folder, season_folder): count}
+    saved_total = 0
 
-    log.info("%s fixtures to process (mode=%s, season=%s)", len(fixtures), mode, season_year)
+    for fixture_id, league_folder, season_folder in fixtures:
+        if not season_folder:
+            continue
 
-    # 2. Loop over fixtures and upload files
-    for i, (fixture_id, league_folder) in enumerate(fixtures, 1):
-        blob_path = f"{folder_prefix}/{league_folder}/{season_folder}/events_{fixture_id}.json"
+        blob_path = (
+            f"match_events/{league_folder}/{season_folder}/"
+            f"{run_segment}/events_{fixture_id}.json"
+        )
 
         if blob_exists(blob_path):
-            continue  # idempotent rerun
+            continue  # idempotent
 
         try:
             payload = fetch_events_from_api(fixture_id)
             if not payload or not payload.get("response"):
                 continue
             upload_blob(blob_path, payload)
-        except Exception as err:  # noqa: BLE001
-            log.error("Failed fixture %s: %s", fixture_id, err)
+            key = (league_folder, season_folder)
+            saved_by[key] = saved_by.get(key, 0) + 1
+            saved_total += 1
+        except Exception:
+            # keep logs focused on what was saved
+            pass
 
-        if i % 500 == 0:
-            log.info("Processed %s/%s fixtures", i, len(fixtures))
+    if saved_total == 0:
+        if args.league_ids:
+            log.info("Finished — no new event files saved for leagues=%s.", args.league_ids)
+        else:
+            log.info("Finished — no new event files saved.")
+        return
 
-    log.info("✔ Finished uploading match-event JSON → Azure Blob")
+    if mode == "initial":
+        log.info("Finished — backfill results:")
+    else:
+        log.info("Finished — incremental results:")
+
+    for (lfolder, sfolder), cnt in sorted(saved_by.items(), key=lambda x: (x[0][0], x[0][1])):
+        log.info("- %s (%s): %s event files saved", lfolder, sfolder, cnt)
+
+    log.info("Total new event files saved: %s", saved_total)
 
 
 if __name__ == "__main__":

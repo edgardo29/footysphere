@@ -57,7 +57,12 @@ def blob_json(blob_svc: BlobServiceClient, path: str) -> dict | None:
     blob = blob_svc.get_blob_client(container="raw", blob=path)
     if not blob.exists():
         return None
-    return json.loads(blob.download_blob().readall())
+    try:
+        return json.loads(blob.download_blob().readall())
+    except json.JSONDecodeError:
+        # Invalid JSON on disk (partial write, truncated, etc.)
+        print(f"invalid   raw/{path} (JSON parse error)")
+        return None
 
 def main() -> None:
     # 1) DB
@@ -83,15 +88,33 @@ def main() -> None:
     # 4) Process
     for league_id, alias, first_season, last_season in work_items:
         for yr in range(first_season, last_season + 1):
-            label    = season_suffix(yr)
+            label     = season_suffix(yr)
             blob_path = f"leagues/{alias}/{label}/league.json"
             payload   = blob_json(blob_svc, blob_path)
             if payload is None:
+                # Missing blob or invalid JSON — treat as missing
                 print(f"missing   raw/{blob_path} (fetch step?)")
                 missing_blobs += 1
                 continue
 
-            league_info = payload["response"][0]
+            # Safety: API-Football returns {"results": 0, "response": []} when there is no data
+            resp = payload.get("response")
+            if not isinstance(resp, list) or len(resp) == 0:
+                print(
+                    "empty     raw/{bp} (league_id={lid}, season={yr}) "
+                    "params={p} results={r} errors={e}".format(
+                        bp=blob_path,
+                        lid=league_id,
+                        yr=yr,
+                        p=payload.get("parameters"),
+                        r=payload.get("results"),
+                        e=payload.get("errors"),
+                    )
+                )
+                missing_blobs += 1
+                continue
+
+            league_info = resp[0]
 
             # ---- LEAGUES ------------------------------------------------
             def slugify(name: str) -> str:
@@ -133,7 +156,7 @@ def main() -> None:
             # ---- LEAGUE_SEASONS ----------------------------------------
             season_obj = next((s for s in league_info["seasons"] if s.get("year") == yr), None)
             if season_obj is None:
-                print(f"warning: season {yr} missing in JSON for league {league_id}")
+                print(f"warning  raw/{blob_path}: season {yr} missing in JSON for league_id={league_id}")
                 continue
 
             new_start = (season_obj.get("start") or "")[:10]
