@@ -13,6 +13,8 @@
 }
 @keyframes lm-fade{ from{opacity:0} to{opacity:1} }
 
+/* Make the dialog a fixed-height flex column.
+   The list pane will flex and scroll inside. */
 .lm-dialog{
   /* layout vars -> ONE rail for everything */
   --lm-padX: 1.25rem;   /* horizontal padding (left & right) */
@@ -20,13 +22,19 @@
   --lm-gap:  14px;      /* space between logo and text */
 
   width:min(760px, 100%);
-  max-height:84vh;
+
+  /* <<< key change: fixed height with internal scroll >>> */
+  height: min(84vh, 720px);
+  max-height: 84vh;
+  display:flex;
+  flex-direction:column;
+
   margin:0 auto; /* safety centering */
   background: linear-gradient(180deg, #0c1220 0%, #0e1424 100%);
   border:1px solid rgba(255,255,255,.10);
   border-radius:14px;
   box-shadow: 0 18px 44px rgba(0,0,0,.38);
-  overflow:hidden;
+  overflow:hidden;                     /* keep rounded corners while list scrolls */
   isolation:isolate;
   transform: translateY(-4px);
   animation: lm-pop .14s ease-out;
@@ -80,10 +88,13 @@
 }
 
 /* ---------- Results list ----------------------------------------------------- */
+/* <<< key change: remove max-height; make it the flex scroller >>> */
 .lm-results{
-  max-height: calc(84vh - 64px);
-  overflow:auto;
+  flex: 1 1 auto;       /* take remaining space between header/section/footer */
+  min-height: 0;        /* needed so it’s allowed to shrink below content height */
+  overflow: auto;       /* internal scroll */
   outline:none;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* PERFECT alignment: all parts share the same rail */
@@ -201,7 +212,9 @@
 @media (max-width: 680px){
   .lm-dialog{ --lm-padX: .9rem; --lm-logo: 40px; }
   .lm-overlay{ padding:4vh 1rem; }
-  .lm-dialog{ width:100%; max-height:88vh; border-radius:12px; }
+
+  /* keep the same “fixed box with internal scroll” behavior on phones */
+  .lm-dialog{ width:100%; height: 88vh; max-height:88vh; border-radius:12px; }
   .lm-input{ height:44px; }
 }
 
