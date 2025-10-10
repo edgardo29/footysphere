@@ -19,7 +19,7 @@ def create_fixtures_table():
         season_year   INT NOT NULL,
         home_team_id  INT NOT NULL,
         away_team_id  INT NOT NULL,
-        fixture_date  TIMESTAMP,
+        fixture_date  TIMESTAMPTZ,
         status        VARCHAR(20),
         round         VARCHAR(50),
         home_score    INT,
