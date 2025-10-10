@@ -18,7 +18,7 @@ def create_stg_fixtures_table():
         season_year     INT,
         home_team_id    INT,
         away_team_id    INT,
-        fixture_date    TIMESTAMP,
+        fixture_date    TIMESTAMPTZ,
         status          VARCHAR(20),
         round           VARCHAR(50),
         home_score      INT,
