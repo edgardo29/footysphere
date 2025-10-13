@@ -114,3 +114,13 @@ etl/**/*.pyc
 
 # --- Backend venv (from earlier) ---
 backend/api_venv/
+
+
+# VM artifacts
+api.out
+env
+env/
+.env
+.env.*
+*.out
+*.log
