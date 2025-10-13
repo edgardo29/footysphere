@@ -2,6 +2,9 @@ import React, { useEffect, useRef, useState } from "react";
 import { FiSearch } from "react-icons/fi";
 import "./styles/leagueModal.css";
 
+
+const API = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
+
 // JSON fetch helper with better error messages
 async function fetchJSON(url, options) {
   const res = await fetch(url, options);
@@ -95,8 +98,8 @@ export default function LeagueModal({ open, onClose, onSelect }) {
 
       try {
         const data = await fetchJSON(
-          `/api/leagueModal/search?q=${encodeURIComponent(q)}&limit=20`,
-          { signal: controller.signal }
+              `${API}/leagueModal/search?q=${encodeURIComponent(q)}&limit=20`,
+                { signal: controller.signal }
         );
         setItems(Array.isArray(data?.items) ? data.items : []);
         setActive(0);
@@ -119,7 +122,7 @@ export default function LeagueModal({ open, onClose, onSelect }) {
     setLoadingList(true);
     try {
       const page = reset ? 1 : listPage;
-      const data = await fetchJSON(`/api/leagueModal/list?page=${page}&page_size=50`);
+      const data = await fetchJSON(`${API}/leagueModal/list?page=${page}&page_size=50`);
       const next = Array.isArray(data?.items) ? data.items : [];
       setAllItems((prev) => (reset ? next : [...prev, ...next]));
       const nextPage = data?.next_cursor ? parseInt(data.next_cursor, 10) : null;

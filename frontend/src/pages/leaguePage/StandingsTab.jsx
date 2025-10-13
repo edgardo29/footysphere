@@ -2,10 +2,14 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import "./styles/standingsTab.css";
 
+const API = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
+
 export default function StandingsTab({ leagueId, season }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
+
+  
 
   useEffect(() => {
     if (!leagueId || !season) {
@@ -21,7 +25,7 @@ export default function StandingsTab({ leagueId, season }) {
         setLoading(true);
         setErr(null);
         const res = await fetch(
-          `/api/leaguesPage/${leagueId}/standings?season=${season}`,
+          `${API}/leaguesPage/${leagueId}/standings?season=${season}`,
           { signal: ctrl.signal }
         );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);

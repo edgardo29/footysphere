@@ -11,6 +11,8 @@ import "./styles/leaguesPage.css";
 import StandingsTab from "./StandingsTab";
 import WeeklyMatchesTab from "./WeeklyMatchesTab";
 
+const API = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
+
 function formatSeason(year) {
   if (!year || Number.isNaN(Number(year))) return "";
   const nextYY = String((Number(year) + 1) % 100).padStart(2, "0");
@@ -37,7 +39,7 @@ export default function LeaguesPage() {
       try {
         setLoading(true);
         setErr(null);
-        const res = await fetch(`/api/leaguesPage/${leagueIdNum}`, { signal: ctrl.signal });
+        const res = await fetch(`${API}/leaguesPage/${leagueIdNum}`, { signal: ctrl.signal });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         setLeague(data);

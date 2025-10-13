@@ -8,7 +8,7 @@ import Footer from "../homePage/Footer";
 import "../homePage/styles/homePage.css";
 import "./styles/matchDetailsPage.css";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
+const API = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
 const USER_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
 
 function fmtWhen(iso) {
@@ -75,7 +75,7 @@ export default function MatchDetailsPage() {
     (async () => {
       try {
         setLoading(true); setErr("");
-        const url = `${API_BASE}/matchDetailsPage/${encodeURIComponent(matchId)}/details`;
+        const url = `${API}/matchDetailsPage/${encodeURIComponent(matchId)}/details`;
         const res = await fetch(url, { signal: ctrl.signal, headers: { Accept: "application/json" } });
         const ct = res.headers.get("content-type") || "";
         if (!res.ok) {
