@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import "./styles/weeklyMatchesTab.css";
 
+const API = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
 /** Monday of the current week (local) as YYYY-MM-DD */
 function getDefaultWeekStartISO() {
   const d = new Date();
@@ -43,7 +44,7 @@ export default function WeeklyMatchesTab({ leagueId }) {
         setLoading(true);
         setErr(null);
         const res = await fetch(
-          `/api/leaguesPage/${leagueId}/weekly-matches?start=${weekStartISO}&days=${days}`,
+          `${API}/leaguesPage/${leagueId}/weekly-matches?start=${weekStartISO}&days=${days}`,
           { signal: ctrl.signal }
         );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);

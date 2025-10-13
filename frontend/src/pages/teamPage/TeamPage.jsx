@@ -8,6 +8,7 @@ import Footer from "../homePage/Footer";
 import "../homePage/styles/homePage.css";
 import "./styles/teamPage.css";
 
+const API = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
 // Safe date parser
 function parseDate(iso) {
   try { return iso ? new Date(iso) : null; } catch { return null; }
@@ -39,7 +40,7 @@ export default function TeamPage() {
     let canceled = false;
     (async () => {
       try {
-        const res = await fetch(`/api/teamPage/${teamId}/summary?season=${encodeURIComponent(season)}`);
+        const res = await fetch(`${API}/teamPage/${teamId}/summary?season=${encodeURIComponent(season)}`);
         if (!res.ok) throw new Error(`Summary HTTP ${res.status}`);
         const j = await res.json();
         if (!canceled) setSummary(j);
@@ -58,7 +59,7 @@ export default function TeamPage() {
         const params = new URLSearchParams({
           season, status: tab, limit: "200", offset: "0", q: search.trim(),
         });
-        const res = await fetch(`/api/teamPage/${teamId}/fixtures?${params.toString()}`);
+        const res = await fetch(`${API}/teamPage/${teamId}/fixtures?${params.toString()}`);
         if (!res.ok) throw new Error(`Fixtures HTTP ${res.status}`);
         const j = await res.json();
         if (!canceled) {
@@ -86,7 +87,7 @@ export default function TeamPage() {
     (async () => {
       try {
         const params = new URLSearchParams({ season, status: "played", limit: "50", offset: "0", q: "" });
-        const res = await fetch(`/api/teamPage/${teamId}/fixtures?${params.toString()}`);
+        const res = await fetch(`${API}/teamPage/${teamId}/fixtures?${params.toString()}`);
         if (!res.ok) throw new Error(`Form fixtures HTTP ${res.status}`);
         const j = await res.json();
         if (!canceled) setFormFixturesPlayed(Array.isArray(j.fixtures) ? j.fixtures : []);
@@ -103,7 +104,7 @@ export default function TeamPage() {
     (async () => {
       try {
         const params = new URLSearchParams({ season, status: "upcoming", limit: "50", offset: "0", q: "" });
-        const res = await fetch(`/api/teamPage/${teamId}/fixtures?${params.toString()}`);
+        const res = await fetch(`${API}/teamPage/${teamId}/fixtures?${params.toString()}`);
         if (!res.ok) throw new Error(`Upcoming fixtures HTTP ${res.status}`);
         const j = await res.json();
         if (!canceled) setUpcomingFixtures(Array.isArray(j.fixtures) ? j.fixtures : []);

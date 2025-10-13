@@ -1,3 +1,4 @@
+// src/pages/homePage/HomePage.jsx
 import React, { useState, useEffect, useMemo } from "react";
 import "../../App.css";
 import "./styles/homePage.css";
@@ -33,15 +34,18 @@ export default function HomePage() {
 
   const navigate = useNavigate();
 
+  const API = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
+
+
   // Popular leagues (DB-ordered endpoint first)
   useEffect(() => {
     let mounted = true;
     (async () => {
       setLoadingLeagues(true);
       const data = await firstPopularThatWorks([
-        "/api/leagues/popular",
-        "/api/leagues/popular?limit=5",
-        "/api/leagueModal/popular?limit=5",
+        `${API}/leagues/popular`,
+        `${API}/leagues/popular?limit=5`,
+        `${API}/leagueModal/popular?limit=5`,
       ]);
       if (mounted) {
         setLeagues((data || []).slice(0, 5));
@@ -53,7 +57,7 @@ export default function HomePage() {
 
   // Today's matches
   useEffect(() => {
-    fetch("/api/matches/today")
+    fetch(`${API}/matches/today`)
       .then((res) => res.json())
       .then((data) => {
         const grouped = (Array.isArray(data) ? data : []).reduce((acc, m) => {
@@ -77,8 +81,6 @@ export default function HomePage() {
     );
     return arr.slice(0, 10);
   }, [allMatches]);
-
-  const hasMatches = allMatches.length > 0;
 
   const handleSelectLeague = (lg) => {
     setShowLeagueModal(false);
@@ -149,70 +151,64 @@ export default function HomePage() {
 
           {loadingMatches && <p className="muted">Loading matches…</p>}
 
-          {!loadingMatches && !hasMatches && (
-            <p className="muted">No matches scheduled today.</p>
-          )}
+          <div className="todays-leagues-grid">
+            {Object.entries(matchesByLeague)
+              .filter(([, arr]) => arr.length)
+              .map(([leagueName, leagueMatches]) => (
+                <div key={leagueName} className="league-block tile">
+                  <div className="group-header">
+                    <span className="group-dot" />
+                    <span className="group-title">{leagueName}</span>
+                  </div>
 
-          {hasMatches && (
-            <div className="todays-leagues-grid">
-              {Object.entries(matchesByLeague)
-                .filter(([, arr]) => arr.length)
-                .map(([leagueName, leagueMatches]) => (
-                  <div key={leagueName} className="league-block tile">
-                    <div className="group-header">
-                      <span className="group-dot" />
-                      <span className="group-title">{leagueName}</span>
-                    </div>
-
-                    {leagueMatches.map((m) => (
-                      <div key={m.id} className="match-card">
-                        <div className="team-block">
-                          <div className="team-logo-wrap">
-                            <img
-                              src={m.home_logo}
-                              alt={m.home_name}
-                              className="team-logo"
-                              loading="lazy"
-                            />
-                          </div>
-                          <div className="team-info">
-                            <span className="team-name">{m.home_name}</span>
-                            <span className="team-place">Home</span>
-                          </div>
+                  {leagueMatches.map((m) => (
+                    <div key={m.id} className="match-card">
+                      <div className="team-block">
+                        <div className="team-logo-wrap">
+                          <img
+                            src={m.home_logo}
+                            alt={m.home_name}
+                            className="team-logo"
+                            loading="lazy"
+                          />
                         </div>
-
-                        <div className="match-details">
-                          <span className="match-time">
-                            {new Date(m.kickoff_utc).toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </span>
-                          <span className={`match-status ${m.status === "Live" ? "live" : ""}`}>
-                            {m.status}
-                          </span>
-                        </div>
-
-                        <div className="team-block right">
-                          <div className="team-info right-info">
-                            <span className="team-name">{m.away_name}</span>
-                            <span className="team-place">Away</span>
-                          </div>
-                          <div className="team-logo-wrap">
-                            <img
-                              src={m.away_logo}
-                              alt={m.away_name}
-                              className="team-logo"
-                              loading="lazy"
-                            />
-                          </div>
+                        <div className="team-info">
+                          <span className="team-name">{m.home_name}</span>
+                          <span className="team-place">Home</span>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                ))}
-            </div>
-          )}
+
+                      <div className="match-details">
+                        <span className="match-time">
+                          {new Date(m.kickoff_utc).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                        <span className={`match-status ${m.status === "Live" ? "live" : ""}`}>
+                          {m.status}
+                        </span>
+                      </div>
+
+                      <div className="team-block right">
+                        <div className="team-info right-info">
+                          <span className="team-name">{m.away_name}</span>
+                          <span className="team-place">Away</span>
+                        </div>
+                        <div className="team-logo-wrap">
+                          <img
+                            src={m.away_logo}
+                            alt={m.away_name}
+                            className="team-logo"
+                            loading="lazy"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+          </div>
         </section>
       </main>
 
