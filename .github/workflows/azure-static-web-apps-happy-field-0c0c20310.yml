@@ -8,7 +8,6 @@ jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
     permissions:
-      id-token: write
       contents: read
     env:
       VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL_PROD }}
@@ -17,18 +16,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Get OIDC Id Token
-        id: oidc
-        uses: actions/github-script@v7
-        with:
-          # 'core' is preloaded by github-script; don't redeclare it
-          script: return await core.getIDToken()
-          result-encoding: string
-
-      - name: Build & Deploy (OIDC)
+      - name: Build & Deploy (token)
         uses: Azure/static-web-apps-deploy@v1
         with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_HAPPY_FIELD_0C0C20310 }}
           action: upload
           app_location: ./frontend
           output_location: dist
-          github_id_token: ${{ steps.oidc.outputs.result }}
