@@ -63,8 +63,8 @@ with DAG(
 ) as dag:
 
     # 1) Fetch (FULL vs INC decided by conf.mode; INC days taken from conf.days or DEFAULT_INC_DAYS)
-    fetch_full = BashOperator(
-        task_id="fetch_full",
+    fetch_fixtures = BashOperator(
+        task_id="fetch_fixtures",
         bash_command=(
             'MODE="{{ dag_run.conf.get(\'mode\', \'inc\') }}"; '
             'DAYS="{{ dag_run.conf.get(\'days\', ' + str(DEFAULT_INC_DAYS) + ') }}"; '
@@ -88,7 +88,7 @@ with DAG(
     # 2) Truncate staging
     cleanup_stg = BashOperator(
         task_id="cleanup_stg",
-        bash_command="$PYTHON " + ROOT + "/src/procs/cleanup_stg.py --table stg_fixtures",
+        bash_command="$PYTHON " + ROOT + "/src/proc_calls/cleanup_stg.py --table stg_fixtures",
         env=ENV,
         doc_md="Truncate stg_fixtures prior to load.",
     )
@@ -122,7 +122,7 @@ with DAG(
     # 4) Validate staging
     check_stg = BashOperator(
         task_id="check_stg",
-        bash_command="$PYTHON " + ROOT + "/src/procs/check_stg_fixtures.py",
+        bash_command="$PYTHON " + ROOT + "/src/proc_calls/check_stg_fixtures.py",
         env=ENV,
         doc_md="Run data quality checks; log issues to data_load_errors.",
     )
@@ -130,9 +130,9 @@ with DAG(
     # 5) Merge into prod
     update_main_table = BashOperator(
         task_id="update_main_table",
-        bash_command="$PYTHON " + ROOT + "/src/procs/update_fixtures.py",
+        bash_command="$PYTHON " + ROOT + "/src/proc_calls/update_fixtures.py",
         env=ENV,
         doc_md="MERGE stg_fixtures → fixtures (idempotent).",
     )
 
-    fetch_full >> cleanup_stg >> load_to_stg >> check_stg >> update_main_table
+    fetch_fixtures >> cleanup_stg >> load_to_stg >> check_stg >> update_main_table

@@ -16,17 +16,19 @@ from get_db_conn import get_db_connection
 
 def create_league_catalog_table():
     ddl = """
-    CREATE TABLE IF NOT EXISTS league_catalog (
+    CREATE TABLE IF NOT EXISTS public.league_catalog (
         league_id     INT  PRIMARY KEY
-                      REFERENCES league_directory (league_id),
-        folder_alias          TEXT UNIQUE NOT NULL,      -- safe for blob paths
+                    REFERENCES public.league_directory (league_id),
+        folder_alias  TEXT UNIQUE NOT NULL,      -- safe for blob paths
         league_name   TEXT NOT NULL,
         first_season  INT  NOT NULL,
         last_season   INT,
         is_enabled    BOOLEAN NOT NULL DEFAULT TRUE,
-        rate_limit_bucket TEXT,
+        players_target_windows TEXT[] NOT NULL DEFAULT '{}'::text[],
         load_date     TIMESTAMP(0) NOT NULL DEFAULT now(),
-        upd_date      TIMESTAMP(0) NOT NULL DEFAULT now()
+        upd_date      TIMESTAMP(0) NOT NULL DEFAULT now(),
+        CONSTRAINT chk_players_target_windows_allowed
+        CHECK (players_target_windows <@ ARRAY['summer','winter']::text[])
     );
 
     -- Quick filter for active leagues

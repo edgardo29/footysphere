@@ -36,7 +36,7 @@ ENV = {
     "PYTHON": "{{ var.value.PYTHON }}",
     "PG_CONN": "{{ var.value.PG_CONN }}",
     # pass to loader via env; fetch takes it as a CLI flag
-    "STANDINGS_GRACE_DAYS": "{{ var.value.STANDINGS_GRACE_DAYS | default(7) }}",
+    "STANDINGS_GRACE_DAYS": "{{ var.value.get('STANDINGS_GRACE_DAYS', 7) | string }}",
     # optional one-off limit for BOTH fetch & load (Trigger DAG → conf: {"league_ids":"244,253,71"})
     "LEAGUE_IDS": "{{ dag_run.conf.get('league_ids', '') }}",
 }
@@ -53,7 +53,7 @@ with DAG(
     # Schedule:
     #   Nightly 02:40 UTC → "40 2 * * *"
     #   Weekly (Sun 02:40 UTC) → "40 2 * * 0"  or use @weekly
-    schedule="40 2 * * 0",
+    schedule="0 3 * * MON",
     default_args={
         "owner": "footysphere",
         "retries": 1,
@@ -64,8 +64,8 @@ with DAG(
 ) as dag:
 
     # 1) Fetch the current standings snapshots (DB-driven scope; no preseason)
-    fetch_full_snapshot = BashOperator(
-        task_id="fetch_full_snapshot",
+    fetch_standings = BashOperator(
+        task_id="fetch_standings",
         bash_command=(
             "$PYTHON "
             + ROOT
@@ -84,7 +84,7 @@ with DAG(
         bash_command=(
             "$PYTHON "
             + ROOT
-            + "/src/procs/cleanup_stg.py --table stg_standings"
+            + "/src/proc_calls/cleanup_stg.py --table stg_standings"
         ),
         env=ENV,
         doc_md="Truncate `stg_standings`.",
@@ -113,7 +113,7 @@ with DAG(
         bash_command=(
             "$PYTHON "
             + ROOT
-            + "/src/procs/check_stg_standings.py"
+            + "/src/proc_calls/check_stg_standings.py"
         ),
         env=ENV,
         doc_md="Runs `CALL check_stg_standings()` and prints a per‑rule summary.",
@@ -125,7 +125,7 @@ with DAG(
         bash_command=(
             "$PYTHON "
             + ROOT
-            + "/src/procs/update_standings.py"
+            + "/src/proc_calls/update_standings.py"
         ),
         env=ENV,
         doc_md="""
@@ -140,4 +140,4 @@ with DAG(
     finished = EmptyOperator(task_id="finished")
 
     # Graph
-    fetch_full_snapshot >> cleanup_stg >> load_to_stg >> check_stg >> update_main_table >> finished
+    fetch_standings >> cleanup_stg >> load_to_stg >> check_stg >> update_main_table >> finished

@@ -36,8 +36,8 @@ with DAG(
 ) as dag:
 
     # 1) Download new or missing blobs
-    fetch_blobs = BashOperator(
-        task_id="fetch_league_blobs",
+    fetch_leagues = BashOperator(
+        task_id="fetch_leagues",
         bash_command=(
             "$PYTHON " + ROOT + "/src/blob/fetch_data/fetch_leagues.py"
         ),
@@ -50,8 +50,8 @@ with DAG(
     )
 
     # 2) Load blobs into Postgres
-    load_to_db = BashOperator(
-        task_id="load_blobs_to_db",
+    load_leagues = BashOperator(
+        task_id="load_leagues",
         bash_command=(
             "$PYTHON " + ROOT + "/src/blob/load_data/load_leagues.py"
         ),
@@ -61,4 +61,4 @@ with DAG(
         doc_md="Upserts into `leagues` and `league_seasons`.",
     )
 
-    fetch_blobs >> load_to_db
+    fetch_leagues >> load_leagues

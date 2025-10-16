@@ -66,7 +66,7 @@ with DAG(
     # 1) Truncate staging table before reload.
     cleanup_stg = BashOperator(
         task_id="cleanup_stg",
-        bash_command="$PYTHON " + ROOT + "/src/procs/cleanup_stg.py --table stg_player_season_stats",
+        bash_command="$PYTHON " + ROOT + "/src/proc_calls/cleanup_stg.py --table stg_player_season_stats",
         env=ENV,
         doc_md="Truncate **stg_player_season_stats** prior to load.",
     )
@@ -91,7 +91,7 @@ with DAG(
     # 3) Validate staging (PROC wrapper prints vertical summary + per-rule counts).
     check_stg = BashOperator(
         task_id="check_stg",
-        bash_command="$PYTHON " + ROOT + "/src/procs/check_stg_player_season_stats.py ",
+        bash_command="$PYTHON " + ROOT + "/src/proc_calls/check_stg_player_season_stats.py ",
         env=ENV,
         doc_md="Run DQ checks; write issues to **data_load_errors**; print per-rule counts.",
     )
@@ -99,7 +99,7 @@ with DAG(
     # 4) Upsert staging → prod (PROC wrapper prints inserted/updated totals).
     update_main_table = BashOperator(
         task_id="update_main_table",
-        bash_command="$PYTHON " + ROOT + "/src/procs/update_player_season_stats.py ",
+        bash_command="$PYTHON " + ROOT + "/src/proc_calls/update_player_season_stats.py ",
         env=ENV,
         doc_md="MERGE **stg_player_season_stats** → **player_season_stats** (idempotent).",
     )
