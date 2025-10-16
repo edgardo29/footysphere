@@ -124,3 +124,9 @@ env/
 .env.*
 *.out
 *.log
+
+# Local env files
+backend/dev.env
+backend/.env*
+*.env
+.env*

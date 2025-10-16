@@ -7,7 +7,7 @@ Loads API-Football match statistics JSON from Azure Blob into stg_match_statisti
 
 CLI:
   --mode {initial, incremental}
-  [--league-id <int>]   # optional: limit to a single league
+  [--league-id <int> ...]   # now supports one or more specific leagues
 
 Resolves from DB:
   - alias  : league_catalog.folder_alias (fallback: league_<id>)
@@ -120,9 +120,18 @@ def resolve_alias_for_league(cur, league_id: int) -> str:
     row = cur.fetchone()
     return row[0] if row and row[0] else f"league_{league_id}"
 
-def get_enabled_leagues(cur, league_id: Optional[int]) -> List[int]:
-    if league_id is not None:
-        return [int(league_id)]
+def get_enabled_leagues(cur, league_ids: Optional[List[int]]) -> List[int]:
+    """
+    Return league_id list.
+      - If league_ids is provided → restrict to those IDs (even if disabled).
+      - Else → all enabled leagues.
+    """
+    if league_ids:
+        cur.execute(
+            "SELECT league_id FROM league_catalog WHERE league_id = ANY(%s) ORDER BY league_id",
+            (league_ids,),
+        )
+        return [int(r[0]) for r in cur.fetchall()]
     cur.execute("SELECT league_id FROM league_catalog WHERE is_enabled = TRUE ORDER BY league_id")
     return [int(r[0]) for r in cur.fetchall()]
 
@@ -240,8 +249,9 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="Load match statistics JSON into stg_match_statistics.")
     ap.add_argument("--mode", required=True, choices=["initial", "incremental"],
                     help="Which blob tree to load (initial or incremental).")
-    ap.add_argument("--league-id", type=int,
-                    help="Optional: only load this league’s latest run.")
+    # CHANGED: accept 1+ integers for league IDs
+    ap.add_argument("--league-id", type=int, nargs="+",
+                    help="Optional: load only these league IDs; default is all enabled.")
     args = ap.parse_args()
 
     svc = get_blob_service()

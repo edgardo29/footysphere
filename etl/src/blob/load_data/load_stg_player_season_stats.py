@@ -154,7 +154,7 @@ def get_league_worklist(
             cur.execute(sql, (league_id,))
         elif league_ids:
             sql = base_sql + " AND lc.league_id = ANY(%s)" + order
-            cur.execute(sql, (tuple(league_ids),))  # tuple-of-ids wrapped once
+            cur.execute(sql, (league_ids,))  # tuple-of-ids wrapped once
         else:
             sql = base_sql + order
             cur.execute(sql)

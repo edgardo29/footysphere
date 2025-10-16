@@ -68,7 +68,7 @@ with DAG(
     # ── 2 · Venues lane (stg → check → merge) ─────────────────────────
     clean_stg_venues = BashOperator(
         task_id="clean_stg_venues",
-        bash_command="$PYTHON " + ROOT + "/src/procs/cleanup_stg.py --table stg_venues",
+        bash_command="$PYTHON " + ROOT + "/src/proc_calls/cleanup_stg.py --table stg_venues",
         env=ENV,
     )
     load_stg_venues = BashOperator(
@@ -78,19 +78,19 @@ with DAG(
     )
     check_stg_venues = BashOperator(
         task_id="check_stg_venues",
-        bash_command="$PYTHON " + ROOT + "/src/procs/check_stg_venues.py",
+        bash_command="$PYTHON " + ROOT + "/src/proc_calls/check_stg_venues.py",
         env=ENV,
     )
     update_venues = BashOperator(
         task_id="update_venues",
-        bash_command="$PYTHON " + ROOT + "/src/procs/update_venues.py",
+        bash_command="$PYTHON " + ROOT + "/src/proc_calls/update_venues.py",
         env=ENV,
     )
 
     # ── 3 · Teams lane (now that venues exist) ────────────────────────
     clean_stg_teams = BashOperator(
         task_id="clean_stg_teams",
-        bash_command="$PYTHON " + ROOT + "/src/procs/cleanup_stg.py --table stg_teams",
+        bash_command="$PYTHON " + ROOT + "/src/proc_calls/cleanup_stg.py --table stg_teams",
         env=ENV,
     )
     load_stg_teams = BashOperator(
@@ -100,12 +100,12 @@ with DAG(
     )
     check_stg_teams = BashOperator(
         task_id="check_stg_teams",
-        bash_command="$PYTHON " + ROOT + "/src/procs/check_stg_teams.py",
+        bash_command="$PYTHON " + ROOT + "/src/proc_calls/check_stg_teams.py",
         env=ENV,
     )
     update_teams = BashOperator(
         task_id="update_teams",
-        bash_command="$PYTHON " + ROOT + "/src/procs/update_teams.py",
+        bash_command="$PYTHON " + ROOT + "/src/proc_calls/update_teams.py",
         env=ENV,
     )
 
