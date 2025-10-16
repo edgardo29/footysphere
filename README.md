@@ -2,6 +2,9 @@
 
 Personal football analytics web app. Shows recent results, league tables, team fixtures, and match details with key stats. Non-real-time; refreshed weekly from API-Football via Python ETL, stored in Postgres, served by FastAPI, rendered with a React/Vite UI. Snapshots archived in Azure Blob.
 
+## Website Link 
+- https://zealous-coast-018496d10.1.azurestaticapps.net/ 
+
 ## Features
 - Results & featured matches
 - League standings
