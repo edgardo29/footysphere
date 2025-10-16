@@ -6,8 +6,9 @@ Endpoints
 • GET /matches/today    – today's fixtures
 """
 import logging
-from datetime import datetime
+from datetime import datetime, date, time, timedelta, timezone
 from typing import List
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -16,6 +17,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
+
 
 # create logger for this module
 logger = logging.getLogger(__name__)
@@ -74,13 +76,32 @@ async def popular_leagues(db: AsyncSession = Depends(get_session)):
 
 
 @router.get("/matches/today", response_model=List[MatchOut])
-async def matches_today(db: AsyncSession = Depends(get_session)):
+async def matches_today(
+    tz: str = "UTC",
+    db: AsyncSession = Depends(get_session),
+):
     """
-    All fixtures with fixture_date = today (UTC).  The front-end will group
-    them by `league_name`.
+    Return fixtures whose LOCAL day (in `tz`) is 'today'.
+    Robust: validates tz, computes [utc_start, utc_end) in Python, and handles DB errors.
     """
-    sql = text(
-        """
+    # 1) Validate timezone early → user error = 400
+    try:
+        tzinfo = ZoneInfo(tz)
+    except ZoneInfoNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid timezone: {tz!r}. Use a valid IANA name like 'America/Chicago'.",
+        )
+
+    # 2) Compute local-day bounds and convert to UTC
+    now_utc = datetime.now(timezone.utc)
+    today_local: date = now_utc.astimezone(tzinfo).date()
+    start_local = datetime.combine(today_local, time(0, 0), tzinfo)
+    end_local = start_local + timedelta(days=1)
+    utc_start = start_local.astimezone(timezone.utc)
+    utc_end = end_local.astimezone(timezone.utc)
+
+    sql = text("""
         SELECT  f.fixture_id      AS id,
                 l.league_name     AS league_name,
                 ht.team_name      AS home_name,
@@ -89,20 +110,20 @@ async def matches_today(db: AsyncSession = Depends(get_session)):
                 at.team_logo_url  AS away_logo,
                 f.fixture_date    AS kickoff_utc,
                 f.status          AS status
-        FROM    fixtures      f
-        JOIN    leagues       l  ON l.league_id = f.league_id
-        JOIN    teams         ht ON ht.team_id  = f.home_team_id
-        JOIN    teams         at ON at.team_id  = f.away_team_id
-        WHERE   f.fixture_date::date = CURRENT_DATE
+        FROM    fixtures f
+        JOIN    leagues  l  ON l.league_id = f.league_id
+        JOIN    teams    ht ON ht.team_id  = f.home_team_id
+        JOIN    teams    at ON at.team_id  = f.away_team_id
+        WHERE   f.fixture_date >= :utc_start
+            AND f.fixture_date <  :utc_end
         ORDER BY l.league_name, f.fixture_date;
-        """
-    )
+    """)
 
     try:
-        rows = (await db.execute(sql)).mappings()
+        rows = (await db.execute(sql, {"utc_start": utc_start, "utc_end": utc_end})).mappings()
         return list(rows)
     except SQLAlchemyError as err:
-        logger.exception("DB error while fetching today's fixtures")
+        logger.exception("DB error in /matches/today (tz=%s, %s–%s)", tz, utc_start, utc_end)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Database error",

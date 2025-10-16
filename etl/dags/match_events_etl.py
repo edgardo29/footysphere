@@ -77,7 +77,7 @@ with DAG(
         task_id="cleanup_stg",
         bash_command=(
             "$PYTHON "
-            + ROOT + "/src/procs/cleanup_stg.py --table stg_match_events"
+            + ROOT + "/src/proc_calls/cleanup_stg.py --table stg_match_events"
         ),
         env=ENV,
     )
@@ -100,7 +100,7 @@ with DAG(
         task_id="check_stg",
         bash_command=(
             "$PYTHON "
-            + ROOT + "/src/procs/check_stg_match_events.py"
+            + ROOT + "/src/proc_calls/check_stg_match_events.py"
         ),
         env=ENV,
     )
@@ -110,7 +110,7 @@ with DAG(
         task_id="update_main_table",
         bash_command=(
             "$PYTHON "
-            + ROOT + "/src/procs/update_match_events.py"
+            + ROOT + "/src/proc_calls/update_match_events.py"
         ),
         env=ENV,
     )

@@ -7,7 +7,7 @@ Pulls match statistics from API-Football and uploads JSONs to Azure Blob
 Storage. Season and leagues are resolved from the DB; CLI takes only:
 
   • --mode {initial, incremental}
-  • [optional] --league-id <int>  (to target a single league)
+  • [optional] --league-id <int> ... <int>   # now supports 1+ IDs in one run
 
 Blob layout (LEAGUE → SEASON → MODE → TIMESTAMP):
 raw/
@@ -127,13 +127,14 @@ def http_get_with_retry(url: str, headers: dict, params: dict,
     return resp  # fallback
 
 # ───────────────────────── DB helpers ─────────────────────────
-def get_enabled_leagues(conn, league_id: Optional[int]) -> List[Tuple[int, str, str]]:
+def get_enabled_leagues(conn, league_ids: Optional[List[int]]) -> List[Tuple[int, str, str]]:
     """
-    Returns list of (league_id, folder_alias, league_name) for enabled leagues,
-    or a single league if league_id is provided (even if disabled).
+    Returns list of (league_id, folder_alias, league_name).
+      - If league_ids is None/empty → all enabled leagues.
+      - Else → only those league_ids (even if disabled).
     """
     with conn.cursor() as cur:
-        if league_id is None:
+        if not league_ids:
             cur.execute(
                 """
                 SELECT lc.league_id, lc.folder_alias, lc.league_name
@@ -147,9 +148,10 @@ def get_enabled_leagues(conn, league_id: Optional[int]) -> List[Tuple[int, str, 
                 """
                 SELECT lc.league_id, lc.folder_alias, lc.league_name
                   FROM league_catalog lc
-                 WHERE lc.league_id = %s
+                 WHERE lc.league_id = ANY(%s)
+                 ORDER BY lc.league_id
                 """,
-                (league_id,),
+                (league_ids,),
             )
         rows = cur.fetchall()
         return [(int(r[0]), str(r[1]), str(r[2])) for r in rows]
@@ -255,8 +257,9 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="Fetch API-Football match statistics and upload to Azure.")
     ap.add_argument("--mode", choices=["initial", "incremental"], required=True,
                     help="initial = full-season backfill; incremental = rolling window")
-    ap.add_argument("--league-id", type=int, default=None,
-                    help="Optional single league to target (default: all enabled leagues).")
+    # CHANGED: accept 1+ integers for league IDs
+    ap.add_argument("--league-id", type=int, nargs="+", default=None,
+                    help="Optional one or more leagues to target (default: all enabled).")
     args = ap.parse_args()
 
     now_utc = dt.datetime.now(dt.timezone.utc)
@@ -267,10 +270,10 @@ def main() -> None:
     svc = get_blob_service()
 
     with get_db_connection() as conn:
-        # Resolve leagues (enabled by default or a single explicit league)
+        # Resolve leagues (enabled by default or an explicit list)
         leagues = get_enabled_leagues(conn, args.league_id)
         if not leagues:
-            log.warning("No leagues found (enabled or matching league_id) → exit 0")
+            log.warning("No leagues found (enabled or matching IDs) → exit 0")
             return
 
         alias_by_league: Dict[int, str] = {lid: alias for (lid, alias, _name) in leagues}
@@ -337,10 +340,11 @@ def main() -> None:
                     log.error("Fixture %s → %s", fixture_id, exc)
 
     total = uploaded + skipped + failed
+    league_desc = "ALL ENABLED" if not args.league_id else ", ".join(map(str, args.league_id))
     print(
         "\n======== FETCH MATCH STATISTICS — SUMMARY ========\n"
         f"Mode             : {args.mode}\n"
-        f"League filter    : {args.league_id or 'ALL ENABLED'}\n"
+        f"League filter    : {league_desc}\n"
         f"Total matches    : {total}\n"
         f"Uploaded         : {uploaded}\n"
         f"Skipped          : {skipped}\n"
