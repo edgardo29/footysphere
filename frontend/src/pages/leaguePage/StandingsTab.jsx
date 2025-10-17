@@ -4,12 +4,33 @@ import "./styles/standingsTab.css";
 
 const API = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
 
+/* Canonicalize group labels so small text differences collapse */
+function normalizeGroupKey(label = "") {
+  return String(label)
+    .replace(/\b20\d{2}(?:[\/\-]\d{2})?\b/g, "")           // drop season bits
+    .replace(/\b(MLS|La Liga|Serie A|Premier League)\b/gi, "") // drop league prefixes
+    .replace(/[,–-]+/g, " ")                               // unify separators
+    .replace(/\s+/g, " ")                                  // collapse spaces
+    .trim()
+    .toLowerCase();
+}
+
+/* Your pretty display formatter (unchanged from behavior) */
+function cleanGroupLabel(label = "") {
+  let t = String(label).trim();
+  if (!t) return t;
+  if (t.includes(",")) t = t.split(",").pop().trim();
+  if (t.includes(" - ")) t = t.split(" - ").pop().trim();
+  t = t.replace(/\b20\d{2}(?:[\/\-]\d{2})?\b/g, "").trim();
+  t = t.replace(/^\s*(MLS|La Liga|Serie A|Premier League)\s*/i, "").trim();
+  t = t.replace(/^[,–-]\s*/, "").replace(/\s{2,}/g, " ").trim();
+  return t || label;
+}
+
 export default function StandingsTab({ leagueId, season }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
-
-  
 
   useEffect(() => {
     if (!leagueId || !season) {
@@ -45,42 +66,44 @@ export default function StandingsTab({ leagueId, season }) {
     return () => ctrl.abort();
   }, [leagueId, season]);
 
-  const groups = useMemo(() => {
-    const map = new Map();
+  // De-dupe defensively in the UI (one row per team_id)
+  const uniqueRows = useMemo(() => {
+    const seen = new Set();
+    const out = [];
     for (const r of rows) {
-      const key = r.group_label || "";
-      if (!map.has(key)) map.set(key, []);
-      map.get(key).push(r);
+      if (seen.has(r.team_id)) continue;
+      seen.add(r.team_id);
+      out.push(r);
     }
-    return Array.from(map.entries()).sort(([a], [b]) =>
-      a === b ? 0 : a === "" ? -1 : b === "" ? 1 : a.localeCompare(b)
-    );
+    return out;
   }, [rows]);
 
+  // Group by normalized key; keep first raw label for display
+  const groups = useMemo(() => {
+    const map = new Map(); // key -> { label, teams }
+    for (const r of uniqueRows) {
+      const key = normalizeGroupKey(r.group_label || "");
+      if (!map.has(key)) map.set(key, { label: r.group_label || "", teams: [] });
+      map.get(key).teams.push(r);
+    }
+    return Array.from(map.values()).sort((a, b) =>
+      a.label === b.label ? 0 : a.label === "" ? -1 : b.label === "" ? 1 : a.label.localeCompare(b.label)
+    );
+  }, [uniqueRows]);
+
   const isMultiGroup = useMemo(
-    () => groups.length > 1 || groups.some(([label]) => label !== ""),
+    () => groups.length > 1 || groups.some((g) => (g.label || "") !== ""),
     [groups]
   );
 
-  function cleanGroupLabel(label = "") {
-    let t = String(label).trim();
-    if (!t) return t;
-    if (t.includes(",")) t = t.split(",").pop().trim();
-    if (t.includes(" - ")) t = t.split(" - ").pop().trim();
-    t = t.replace(/\b20\d{2}(?:[\/\-]\d{2})?\b/g, "").trim();
-    t = t.replace(/^\s*(MLS|La Liga|Serie A|Premier League)\s*/i, "").trim();
-    t = t.replace(/^[,–-]\s*/, "").replace(/\s{2,}/g, " ").trim();
-    return t || label;
-  }
-
   if (loading) return <p className="muted">Loading standings…</p>;
   if (err) return <p className="muted">{err}</p>;
-  if (!rows.length) return <p className="muted">No standings available.</p>;
+  if (!uniqueRows.length) return <p className="muted">No standings available.</p>;
 
   return (
     <div className="standings-tab">
-      {groups.map(([label, teams]) => (
-        <section key={label || "main"} className="table-block">
+      {groups.map(({ label, teams }) => (
+        <section key={normalizeGroupKey(label) || "main"} className="table-block">
           {isMultiGroup ? (
             <div className="table-header compact">
               <span className="group-chip">{cleanGroupLabel(label)}</span>
@@ -120,7 +143,7 @@ export default function StandingsTab({ leagueId, season }) {
                   <tr key={`${team.team_id}-${team.position}`}>
                     <td>{team.position ?? ""}</td>
 
-                    {/* TEAM cell (only clickable cell) */}
+                    {/* TEAM cell (clickable) */}
                     <td className="team-cell">
                       {team.team_id ? (
                         <Link
@@ -131,7 +154,6 @@ export default function StandingsTab({ leagueId, season }) {
                           aria-label={`Open ${team.team_name} team page`}
                         >
                           <div className="team-wrap">
-                            {/* Crest chip wrapper — same as Weekly tab */}
                             <span className="crest-chip">
                               {team.team_logo_url ? (
                                 <img
@@ -178,9 +200,7 @@ export default function StandingsTab({ leagueId, season }) {
                         {(team.form || []).map((r, i) => (
                           <span
                             key={i}
-                            className={`form-dot ${
-                              r === "W" ? "win" : r === "D" ? "draw" : "loss"
-                            }`}
+                            className={`form-dot ${r === "W" ? "win" : r === "D" ? "draw" : "loss"}`}
                             title={r}
                           >
                             {r}

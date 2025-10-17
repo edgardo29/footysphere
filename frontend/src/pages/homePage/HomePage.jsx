@@ -63,7 +63,7 @@ export default function HomePage() {
         const tz =
           Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
         const res = await fetch(
-          `${API}/matches/today?tz=${encodeURIComponent(tz)}`
+          `${API}/matches/today?tz=${encodeURIComponent(tz)}&_=${Date.now()}`
         );
         const data = await res.json();
         if (cancelled) return;
