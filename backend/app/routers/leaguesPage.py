@@ -26,6 +26,7 @@ class LeagueDetailOut(BaseModel):
     current_season: Optional[int] = None
     last_updated_utc: Optional[datetime] = None
 
+
 class StandingRowOut(BaseModel):
     position: int = Field(..., description="Table rank")
     team_id: int
@@ -42,19 +43,17 @@ class StandingRowOut(BaseModel):
     form: List[str] = Field(default_factory=list)
     group_label: str
 
-# ────────────────────────────────────────────────────────────────s
-# SQL (use league_catalog.last_season, alias to current_season)
+
+# ────────────────────────────────────────────────────────────────
+# SQL
 # ────────────────────────────────────────────────────────────────
 SQL_LEAGUE_DETAIL = text(
     """
     WITH season_src AS (
-        SELECT
-            COALESCE(lc.last_season, MAX(s.season_year)) AS current_season
+        SELECT COALESCE(lc.last_season, MAX(s.season_year)) AS current_season
         FROM leagues l
-        LEFT JOIN league_catalog lc
-               ON lc.league_id = l.league_id
-        LEFT JOIN standings s
-               ON s.league_id = l.league_id
+        LEFT JOIN league_catalog lc ON lc.league_id = l.league_id
+        LEFT JOIN standings s      ON s.league_id = l.league_id
         WHERE l.league_id = :league_id
         GROUP BY lc.last_season
     )
@@ -80,39 +79,47 @@ SQL_CURRENT_SEASON_FOR_LEAGUE = text(
     """
     SELECT COALESCE(lc.last_season, MAX(s.season_year)) AS current_season
     FROM leagues l
-    LEFT JOIN league_catalog lc
-           ON lc.league_id = l.league_id
-    LEFT JOIN standings s
-           ON s.league_id = l.league_id
+    LEFT JOIN league_catalog lc ON lc.league_id = l.league_id
+    LEFT JOIN standings s      ON s.league_id = l.league_id
     WHERE l.league_id = :league_id
     GROUP BY lc.last_season;
     """
 )
 
-SQL_STANDINGS = text(
-    """
-    SELECT
-        s.rank               AS position,
-        t.team_id            AS team_id,
-        t.team_name          AS team_name,
-        t.team_logo_url      AS team_logo_url,
-        s.played             AS played,
-        s.win                AS wins,
-        s.draw               AS draws,
-        s.lose               AS losses,
-        s.goals_for          AS goals_for,
-        s.goals_against      AS goals_against,
-        s.goals_diff         AS goal_diff,
-        s.points             AS points,
-        s.form_compact       AS form_compact,
-        s.group_label        AS group_label
-    FROM standings s
-    JOIN teams t ON t.team_id = s.team_id
-    WHERE s.league_id = :league_id
-      AND s.season_year = :season_year
-    ORDER BY s.group_label, s.rank NULLS LAST, t.team_name;
-    """
+# One row per team (latest by upd_date), and groups normalized for ordering
+SQL_STANDINGS = text("""
+WITH latest AS (
+  -- one row per team (latest by upd_date, then lowest rank as tie-break)
+  SELECT DISTINCT ON (s.team_id) s.*
+  FROM standings s
+  WHERE s.league_id   = :league_id
+    AND s.season_year = :season_year
+  ORDER BY s.team_id, s.upd_date DESC NULLS LAST, s.rank ASC
 )
+SELECT
+  l.rank               AS position,
+  t.team_id            AS team_id,
+  t.team_name          AS team_name,
+  t.team_logo_url      AS team_logo_url,
+  l.played             AS played,
+  l.win                AS wins,
+  l.draw               AS draws,
+  l.lose               AS losses,
+  l.goals_for          AS goals_for,
+  l.goals_against      AS goals_against,
+  l.goals_diff         AS goal_diff,
+  l.points             AS points,
+  l.form_compact       AS form_compact,
+  COALESCE(l.group_label, '') AS group_label
+FROM latest l
+JOIN teams t ON t.team_id = l.team_id
+ORDER BY
+  NULLIF(l.group_label, '') NULLS LAST,  -- basic grouping; UI will normalize/merge
+  l.rank NULLS LAST,
+  t.team_name;
+""")
+
+
 
 # ────────────────────────────────────────────────────────────────
 # Routes
@@ -189,10 +196,6 @@ async def get_league_standings(
         raise HTTPException(status_code=500, detail="Database error")
 
 
-
-
-
-
 # ────────────────────────────────────────────────────────────────
 # Weekly matches for a league
 #   GET /leaguesPage/{league_id}/weekly-matches?start=YYYY-MM-DD&days=7
@@ -212,6 +215,7 @@ class WeeklyMatchOut(BaseModel):
     away_logo: Optional[str] = None
     home_score: Optional[int] = None
     away_score: Optional[int] = None
+
 
 SQL_WEEKLY_MATCHES = text(
     """
@@ -248,7 +252,6 @@ async def get_weekly_matches(
     db: AsyncSession = Depends(get_session),
 ):
     try:
-        # Default to Monday of the current week (UTC-ish; timestamp is naive UTC in your schema)
         if start is None:
             today = _date.today()
             start = today - _td(days=today.weekday())  # Monday
@@ -264,8 +267,6 @@ async def get_weekly_matches(
         )
         return list(res.mappings())
     except SQLAlchemyError:
-        # Log and return a 500 with a generic message
-        import logging
         logging.getLogger(__name__).exception(
             "DB error in get_weekly_matches league_id=%s start=%s days=%s",
             league_id, start, days
