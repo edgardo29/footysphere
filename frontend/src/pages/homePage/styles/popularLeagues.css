@@ -1,0 +1,46 @@
+/* ===== Popular Leagues grid/cards ===== */
+.leagues-grid{
+  display:grid;
+  gap:.75rem;
+  width:100%;
+  margin-top:1rem;                         /* extra breathing room below header */
+  grid-template-columns: repeat(5, minmax(0, 1fr));  /* exactly 5 across on wide screens */
+}
+
+/* breakpoints: step down cleanly */
+@media (max-width: 1400px){
+  .leagues-grid{ grid-template-columns: repeat(4, 1fr); }
+}
+@media (max-width: 1100px){
+  .leagues-grid{ grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 800px){
+  .leagues-grid{ grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 520px){
+  .leagues-grid{ grid-template-columns: 1fr; }
+}
+
+.league-card{
+  display:flex; align-items:center; gap:.55rem;
+  min-height:56px;                          /* a touch taller with more columns */
+  padding:.45rem .75rem;
+  text-decoration:none; color:inherit;
+}
+
+.league-logo-wrap{
+  width:36px; height:36px;
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:10px;
+  display:flex; align-items:center; justify-content:center;
+  flex:0 0 auto;
+}
+.league-logo{ max-width:29px; max-height:29px; }
+
+.league-text h3{
+  font-size:.88rem; font-weight:700; color:var(--text-100); margin:0;
+}
+.league-text p{
+  font-size:.64rem; color:#9ca3af; margin:.06rem 0 0;
+}
