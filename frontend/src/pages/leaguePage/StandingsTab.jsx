@@ -7,15 +7,15 @@ const API = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
 /* Canonicalize group labels so small text differences collapse */
 function normalizeGroupKey(label = "") {
   return String(label)
-    .replace(/\b20\d{2}(?:[\/\-]\d{2})?\b/g, "")           // drop season bits
-    .replace(/\b(MLS|La Liga|Serie A|Premier League)\b/gi, "") // drop league prefixes
-    .replace(/[,–-]+/g, " ")                               // unify separators
-    .replace(/\s+/g, " ")                                  // collapse spaces
+    .replace(/\b20\d{2}(?:[\/\-]\d{2})?\b/g, "")
+    .replace(/\b(MLS|La Liga|Serie A|Premier League)\b/gi, "")
+    .replace(/[,–-]+/g, " ")
+    .replace(/\s+/g, " ")
     .trim()
     .toLowerCase();
 }
 
-/* Your pretty display formatter (unchanged from behavior) */
+/* Display formatter */
 function cleanGroupLabel(label = "") {
   let t = String(label).trim();
   if (!t) return t;
@@ -78,9 +78,9 @@ export default function StandingsTab({ leagueId, season }) {
     return out;
   }, [rows]);
 
-  // Group by normalized key; keep first raw label for display
+  // Group by normalized key
   const groups = useMemo(() => {
-    const map = new Map(); // key -> { label, teams }
+    const map = new Map();
     for (const r of uniqueRows) {
       const key = normalizeGroupKey(r.group_label || "");
       if (!map.has(key)) map.set(key, { label: r.group_label || "", teams: [] });
@@ -143,7 +143,6 @@ export default function StandingsTab({ leagueId, season }) {
                   <tr key={`${team.team_id}-${team.position}`}>
                     <td>{team.position ?? ""}</td>
 
-                    {/* TEAM cell (clickable) */}
                     <td className="team-cell">
                       {team.team_id ? (
                         <Link

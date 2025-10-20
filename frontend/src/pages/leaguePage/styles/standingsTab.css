@@ -1,7 +1,7 @@
 .standings-tab { padding-top: 0.5rem; }
 .table-block { margin-top: 0.75rem; }
 
-/* Compact header: right-aligned group chip */
+/* Compact header */
 .table-header {
   max-width: 1200px;
   margin: 0 auto 0.5rem;
@@ -20,11 +20,12 @@
   font-size: .8rem;
 }
 
-/* Table container adopts tile surface */
+/* Table container = horizontal scroll on narrow screens */
 .table-wrap {
   max-width: 1200px;
   margin-inline: auto;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .table-wrap.tile { padding: 0; }
 
@@ -34,13 +35,17 @@
   border-collapse: collapse;
   background: transparent;
   border: none;
+
+  /* KEY: prevent squish/letter-stacking; make it scroll instead */
+  table-layout: fixed;
+  min-width: 1080px; /* sum of column mins below */
 }
 
-/* Column sizing */
-.col-pos  { width: 56px; }
-.col-team { width: 420px; }
-.col-stat { width: 68px; }
-.col-form { width: 320px; min-width: 280px; }
+/* Column sizing (with mins so the browser won't compress below) */
+.col-pos  { width: 56px;  min-width: 56px; }
+.col-team { width: 420px; min-width: 320px; }
+.col-stat { width: 64px;  min-width: 56px; }
+.col-form { width: 320px; min-width: 240px; }
 
 /* Header row */
 .standings-table thead tr { background: rgba(255,255,255,.05); }
@@ -50,6 +55,7 @@
   text-align: left;
   padding: 0.75rem 1rem;
   border-bottom: 1px solid var(--line);
+  white-space: nowrap; /* keep labels on one line */
 }
 
 /* Body rows */
@@ -58,6 +64,7 @@
   padding: 0.85rem 1rem;
   border-bottom: 1px solid var(--line);
   vertical-align: middle;
+  white-space: nowrap; /* ensures numbers / team cell stay in one line */
 }
 .standings-table tr:last-child td { border-bottom: none; }
 .standings-table tbody tr:hover { background: rgba(255,255,255,.035); }
@@ -79,11 +86,12 @@
 .team-wrap {
   display: inline-flex;
   align-items: center;
-  gap: 0.55rem;           /* matches Weekly tab */
+  gap: 0.55rem;
   max-width: 100%;
+  min-width: 0;            /* KEY for ellipsis inside flex */
 }
 
-/* >>> Crest chip wrapper — SAME as Weekly Matches (.wm-logo-wrap) */
+/* Crest chip */
 .crest-chip{
   width: 32px; height: 32px;
   display: grid; place-items: center; line-height: 0;
@@ -95,7 +103,7 @@
   flex: 0 0 auto;
 }
 
-/* Exact crest size (matches Weekly .wm-logo) */
+/* Crest size */
 .standings-table .team-logo {
   width: 24px;
   height: 24px;
@@ -104,13 +112,13 @@
   object-position: center;
 }
 
-/* Mobile downsize (matches Weekly) */
+/* Mobile downsize */
 @media (max-width: 900px) {
   .crest-chip { width: 28px; height: 28px; }
   .standings-table .team-logo { width: 20px; height: 20px; }
 }
 
-/* Placeholder inside chip (no extra background; the chip provides it) */
+/* Placeholder */
 .team-logo.placeholder {
   width: 24px;
   height: 24px;
@@ -119,6 +127,7 @@
   border-radius: 0;
 }
 
+/* Team name: never break per-letter; ellipsis instead */
 .team-name {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -126,6 +135,10 @@
   color: var(--text-200);
   font-weight: 700;
   line-height: 1.1;
+
+  /* hard-stop any global “break anywhere” rules */
+  word-break: keep-all;
+  overflow-wrap: normal;
 }
 
 /* FORM chips */
@@ -153,13 +166,23 @@
 .draw { background-color: #f59e0b; }
 .loss { background-color: #ef4444; }
 
-/* Responsive widths */
+/* Responsive tweaks */
 @media (max-width: 1200px) {
   .col-team { width: 360px; }
   .col-form { width: 300px; }
 }
+
 @media (max-width: 900px) {
-  .col-team { width: 300px; }
-  .col-form { min-width: 240px; width: 260px; }
+  .col-team { width: 300px; min-width: 280px; }
+  .col-form { width: 260px; min-width: 220px; }
   .form-wrap { flex-wrap: wrap; row-gap: 0.35rem; }
+  .form-dot { height: 1.3rem; min-width: 1.3rem; font-size: 0.75rem; }
+}
+
+/* Extra-small: keep table scrollable rather than collapsing */
+@media (max-width: 640px) {
+  .standings-table { min-width: 980px; }
+  .col-team { min-width: 260px; }
+  .col-stat { min-width: 52px; }
+  .col-form { min-width: 200px; }
 }
