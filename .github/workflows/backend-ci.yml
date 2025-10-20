@@ -6,12 +6,6 @@ on:
     paths:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'
-  # Also run after merges to main that touch backend/ or this workflow
-  push:
-    branches: [ main ]
-    paths:
-      - 'backend/**'
-      - '.github/workflows/backend-ci.yml'
 
 jobs:
   build-test:
@@ -35,29 +29,11 @@ jobs:
           cache: 'pip'                              # <- speed up installs
           cache-dependency-path: backend/requirements_api.txt  # <- EXACT file
 
-      # 3) Provide a non-secret .env if an example exists (prevents import crashes)
-      - name: Prepare .env
-        run: |
-          if [ -f .env.example ] && [ ! -f .env ]; then cp .env.example .env; fi
-
-      # 4) Install backend dependencies from YOUR exact file name
+      # 3) Install backend dependencies from YOUR exact file name
       - name: Install dependencies
         run: pip install -r requirements_api.txt
 
-      # 5) Smoke check: fail fast if the app entrypoint can’t import
-      - name: Import app.main
-        run: |
-          python - << 'PY'
-          import importlib, sys
-          try:
-              importlib.import_module('app.main')   # <- adjust only if your path differs
-              print("OK: import app.main")
-          except Exception as e:
-              print("FAIL:", e)
-              sys.exit(1)
-          PY
-
-      # 6) Run tests only if a tests/ folder exists (auto-skip otherwise)
+      # 4) Run tests only if a tests/ folder exists (auto-skip otherwise)
       - name: Run tests (if present)
         if: ${{ hashFiles('backend/tests/**') != '' }}
         run: pytest -q

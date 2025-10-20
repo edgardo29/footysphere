@@ -1,3 +1,10 @@
+/* ─────────────────────────────────────────────────────────────
+   TopBanner — FULL UPDATED CSS (v3)
+   ─ ticker never overlaps next section
+   ─ small/medium: single column (text → cards), 3→2→1 grid
+   ─ large desktop: two columns; cards vertically centered in slab
+   ──────────────────────────────────────────────────────────── */
+
 :root{
   --ink-900:#070b11;
   --ink-800:#0b1118;
@@ -15,25 +22,24 @@
   --speed-med: 18s;
 }
 
-/* shell */
+/* ───────── Shell ───────── */
 .tb{
   position:relative;
   isolation:isolate;
   overflow:hidden;
-  /* keep this in sync with .tb-ticker height */
-  --ticker-h: 38px; /* NEW */
+  --ticker-h:38px;                       /* keep in sync with .tb-ticker */
   min-height:78vh;
+  padding-bottom:calc(var(--ticker-h) + 10px);  /* space for ticker */
   background:radial-gradient(1200px 750px at 50% 100%, var(--ink-800), var(--ink-900) 60%);
   border-bottom:1px solid var(--line);
-  opacity:0;
-  animation:f-in .4s ease-out forwards;
+  opacity:0; animation:f-in .4s ease-out forwards;
 }
 @keyframes f-in{
   from{opacity:0; transform:translateY(8px)}
   to{opacity:1; transform:translateY(0)}
 }
 
-/* bg */
+/* ───────── Background ───────── */
 .tb-bg{ position:absolute; inset:0; z-index:0; }
 .bg-mesh{
   position:absolute; inset:-15% -10% -10% -10%;
@@ -58,19 +64,53 @@
   background-size:220px 220px;
 }
 
-/* grid layout */
+/* ───────── Grid Layout ───────── */
 .tb-wrap{
   max-width:112rem; margin:0 auto;
   padding:5rem var(--pad) 4rem;
   padding-left:calc(var(--pad) + env(safe-area-inset-left));
-  display:grid; grid-template-columns:1fr 1fr; gap:3.6rem;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  grid-template-areas:"left right";
+  gap:3.6rem;
+  align-items:center;
   position:relative; z-index:1;
 }
-@media (max-width:1100px){
-  .tb-wrap{ grid-template-columns:1fr; gap:2rem; }
+.tb-left{ grid-area:left; position:relative; z-index:1; }
+.hero-right{ grid-area:right; position:relative; min-height:560px; }
+
+/* ───── Stacked mode (≤1280px): text then cards; hide decor ───── */
+@media (max-width:1280px){
+  .tb-wrap{
+    grid-template-columns:1fr;
+    grid-template-areas:
+      "left"
+      "right";
+    gap:1.8rem;
+    align-items:start;
+  }
+  .hero-right{ min-height:0; }
+  .hero-slab, .beam{ display:none !important; }
+
+  .panels{
+    position:relative !important;
+    top:auto !important; right:auto !important; left:auto !important;
+    transform:none !important;
+    width:100%;
+    max-width:980px;
+    margin:12px auto 18px;
+    display:grid; gap:12px;
+    grid-template-columns:repeat(3, minmax(0,1fr));
+  }
+}
+@media (max-width:900px){
+  .panels{ grid-template-columns:repeat(2, minmax(0,1fr)); }
+}
+@media (max-width:560px){
+  .panels{ grid-template-columns:1fr; }
 }
 
-/* left column */
+/* ───────── Typography & CTAs ───────── */
 .tb-title{ margin:0 0 .7rem 0; line-height:1.02; letter-spacing:-.02em; }
 .tb-strong{
   font-weight:900; font-size:clamp(3rem, 5.6vw, 4.9rem);
@@ -79,8 +119,7 @@
 }
 .tb-soft{ font-weight:800; font-size:clamp(3rem, 5.6vw, 4.9rem); color:var(--text-200); }
 .tb-sub{ margin:.9rem 0 1.25rem; color:var(--text-400); font-size:1.06rem; max-width:720px; }
-
-.tb-cta{ display:flex; gap:.85rem; flex-wrap:wrap; }
+.tb-cta{ display:flex; gap:.85rem; flex-wrap:wrap; margin-bottom:.4rem; }
 .cta-solid{
   display:inline-flex; align-items:center; justify-content:center; padding:.7rem 1.05rem;
   border-radius:12px; font-weight:800; color:#fff; text-decoration:none;
@@ -95,41 +134,56 @@
 }
 .cta-ghost:hover{ background:rgba(255,255,255,.06); border-color:rgba(255,255,255,.22); transform:translateY(-1px); }
 
-/* right column — diagonal slab + panels */
-.hero-right{ position:relative; min-height:520px; }
+/* ───────── Right Column (desktop ≥1281px) ───────── */
+@media (min-width:1281px){
+  .tb-wrap{
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+    grid-template-areas:"left right";
+    align-items:center;
+  }
+  .hero-right{ position:relative; min-height:560px; }
+  .hero-slab{ display:block; }
 
-/* keep the slab above the background but BELOW the ticker */
+  /* Vertically center the three cards inside the slab */
+  .panels{
+    position:absolute !important;
+    right:8%;
+    top:50%;
+    transform:translateY(-50%);
+    z-index:1;
+    width:min(460px, 44vw);
+    margin:0;                       /* no layout margins when absolute */
+    display:grid; gap:14px;
+    grid-template-columns:1fr;      /* stack three cards */
+  }
+}
+
+/* diagonal glass slab (desktop only; hidden in stacked mode) */
 .hero-slab{
-  /* OLD: inset:-8% -6% -10% 20%; */
-  inset: -8% -6% calc(var(--ticker-h) + 6px) 20%;  /* NEW: crop above ticker */
   position:absolute;
+  inset: -8% -6% calc(var(--ticker-h) + 6px) 20%;  /* crop above ticker */
   background:
     linear-gradient(160deg, rgba(255,255,255,.06), rgba(255,255,255,0) 55%),
     radial-gradient(60% 80% at 85% 30%, rgba(96,165,250,.22), rgba(167,139,250,.16) 60%, transparent 75%);
   backdrop-filter: blur(8px);
   border:1px solid rgba(255,255,255,.08);
-  clip-path: polygon(18% 0, 100% 0, 100% 100%, 0 100%); /* diagonal left edge */
+  clip-path: polygon(18% 0, 100% 0, 100% 100%, 0 100%);
   border-radius:22px; opacity:.9;
-  z-index:0;                 /* NEW: ensure under ticker */
-  pointer-events:none;       /* optional: make it non-interactive */
+  z-index:0; pointer-events:none;
 }
 
-/* slow beams */
+/* slow beams (desktop only; hidden in stacked mode) */
 .beam{
   position:absolute; left:24%; right:6%; height:2px;
   background:linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.35), rgba(255,255,255,0));
-  filter:blur(.6px); opacity:.5;
+  filter:blur(.6px); opacity:.5; z-index:0;
 }
 .beam.b1{ top:26%; animation:slide1 9s linear infinite; }
 .beam.b2{ top:62%; animation:slide2 11s linear infinite; }
 @keyframes slide1{ 0%{transform:translateX(0)} 100%{transform:translateX(-18%)} }
 @keyframes slide2{ 0%{transform:translateX(-10%)} 100%{transform:translateX(10%)} }
 
-/* stats panels */
-.panels{
-  position:absolute; right:8%; top:14%;
-  display:grid; gap:14px; width:min(440px, 46vw);
-}
+/* stat panels */
 .panel{
   display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:12px;
   padding:14px 16px; border-radius:16px;
@@ -145,13 +199,13 @@
 .pn{ font-weight:900; color:#eaf2ff; font-size:1.1rem; }
 .pd{ grid-column:2 / -1; margin-top:-2px; color:#9fb0c8; font-size:.82rem; }
 
-/* ticker — raise above slab */
+/* ───────── Ticker ───────── */
 .tb-ticker{
   position:absolute; left:0; right:0; bottom:0; height:38px;
   overflow:hidden;
   border-top:1px solid rgba(255,255,255,.06);
   background:linear-gradient(180deg, rgba(12,16,24,.6), rgba(12,16,24,.85));
-  z-index:5; /* NEW: sits above .hero-slab/.tb-wrap */
+  z-index:5;
 }
 .track{
   display:flex; gap:18px; align-items:center; white-space:nowrap;
@@ -166,7 +220,7 @@
 .t-league{ opacity:.6; font-weight:800; font-size:.78rem; }
 
 .fade{
-  position:absolute; top:0; bottom:0; width:120px; pointer-events:none; z-index:2;
+  position:absolute; top:0; bottom:0; width:120px; pointer-events:none; z-index:6;
   background:linear-gradient(90deg, rgba(12,16,24,.9), rgba(12,16,24,0));
 }
 .fade.r{ right:0; transform:scaleX(-1); }
