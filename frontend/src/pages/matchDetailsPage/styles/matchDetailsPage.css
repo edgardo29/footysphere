@@ -1,5 +1,5 @@
 /* ===== Base ===== */
-.match-page{ --page-xpad: clamp(16px, 4.5vw, 28px); }
+.match-page{ --page-xpad: clamp(16px, 4.5vw, 28px); -webkit-text-size-adjust:100%; text-size-adjust:100%; }
 .main-content.match-page{ padding-inline:var(--page-xpad); }
 
 /* Actions row */
@@ -53,12 +53,13 @@
 .timeline-wrap{
   --rail-w:88px; --badge:46px; --spoke-gap:14px; --row-gap:1.05rem; --pill-gap:.65rem;
   padding:.6rem var(--page-xpad) 1.1rem;
+  min-width:0;
 }
 .mono{font-variant-numeric:tabular-nums}
 .phase-block + .phase-block{margin-top:.9rem}
 .phase-sep{margin:.25rem .35rem .55rem;font-weight:800;font-size:.82rem;letter-spacing:.3px;color:var(--text-400);text-transform:uppercase}
-.timeline--split{list-style:none;margin:0;padding:.15rem 0 1rem;display:grid;gap:.8rem}
-.minute-row{position:relative;display:grid;grid-template-columns:minmax(0,1fr) var(--rail-w) minmax(0,1fr);align-items:center;gap:var(--row-gap);padding:.42rem 0;min-height:58px}
+.timeline--split{list-style:none;margin:0;padding:.15rem 0 1rem;display:grid;gap:.8rem;min-width:0}
+.minute-row{position:relative;display:grid;grid-template-columns:minmax(0,1fr) var(--rail-w) minmax(0,1fr);align-items:center;gap:var(--row-gap);padding:.42rem 0;min-height:58px;min-width:0}
 
 /* center rail */
 .center-rail{position:relative;width:var(--rail-w);display:grid;justify-items:center;align-items:center;padding:.2rem 0}
@@ -74,9 +75,8 @@
 }
 
 /* side stacks are container roots so pills can self-scale */
-.side{display:flex;flex-direction:column;gap:var(--pill-gap);container-type:inline-size;}
+.side{display:flex;flex-direction:column;gap:var(--pill-gap);container-type:inline-size;align-items:flex-start;max-width:100%;min-width:0}
 .side.left{align-items:flex-end;text-align:right}
-.side.right{align-items:flex-start;text-align:left}
 
 /* faint connectors respect page gutter */
 .minute-row::before,.minute-row::after{content:"";position:absolute;top:50%;height:2px;background:rgba(255,255,255,.14);transform:translateY(-1px);display:none}
@@ -88,12 +88,12 @@
   display:flex;align-items:center;gap:.55rem;
   background:rgba(255,255,255,.035);border:1px solid var(--line);
   border-radius:12px;padding:.58rem .85rem;
-  max-width:min(700px,100%);box-sizing:border-box;
+  max-width:min(700px,100%);box-sizing:border-box;min-width:0;
 
   /* clean wrapping */
-  word-break:normal;overflow-wrap:break-word;hyphens:none;
+  word-break:normal;overflow-wrap:break-word;-webkit-hyphens:none;hyphens:none;
 
-  /* base font size to scale down via container queries */
+  /* base font size to scale down via container & viewport queries */
   font-size:1rem;
 }
 .t-pill:hover{background:rgba(255,255,255,.055);border-color:rgba(209,213,219,.28)}
@@ -136,19 +136,32 @@
   @media (max-width:520px){
     .timeline-wrap{--rail-w:70px;--badge:40px}
     .t-pill{font-size:.94em;padding:.54rem .78rem}
-    .etype{font-size:.66rem}
+    .etype{font-size:.66rem;min-width:38px}
+    .t-primary{font-size:.92rem}
+    .t-secondary{font-size:.8rem}
   }
-  @media (max-width:420px){
-    .timeline-wrap{--rail-w:62px;--badge:36px}
-    .t-pill{font-size:.88em;padding:.5rem .72rem}
-    .etype{font-size:.62rem}
+  @media (max-width:460px){
+    .timeline-wrap{--rail-w:64px;--badge:36px}
+    .t-pill{font-size:.9em;padding:.5rem .72rem;gap:.48rem}
+    .etype{font-size:.62rem;min-width:34px}
+    .t-primary{font-size:.88rem}
+    .t-secondary{font-size:.78rem}
+  }
+  @media (max-width:400px){
+    .timeline-wrap{--rail-w:58px;--badge:32px}
+    .t-pill{font-size:.86em;padding:.46rem .66rem}
+    .etype{font-size:.6rem;min-width:30px}
+    .t-primary{font-size:.84rem}
+    .t-secondary{font-size:.74rem}
   }
 }
 
 /* ===== Give side columns more room as screens shrink ===== */
 @media (max-width:540px){ .timeline-wrap{--rail-w:68px;--badge:38px;--row-gap:.7rem;--pill-gap:.56rem} }
 @media (max-width:440px){ .timeline-wrap{--rail-w:60px;--badge:34px} }
-@media (max-width:380px){ .timeline-wrap{--rail-w:54px;--badge:30px} }
+@media (max-width:430px){ .timeline-wrap{--rail-w:56px;--badge:32px} }
+@media (max-width:390px){ .timeline-wrap{--rail-w:52px;--badge:30px} }
+@media (max-width:360px){ .timeline-wrap{--rail-w:48px;--badge:28px} }
 
 /* ===== Stats ===== */
 .stats{padding:.7rem var(--page-xpad) 1.1rem;display:grid;gap:.85rem}

@@ -34,13 +34,15 @@
   border-radius:9999px; padding:.42rem .9rem;
   line-height:1; height:2.1rem;
   cursor:pointer; transition:all .15s ease-in-out;
+  display:inline-flex; align-items:center; gap:.35rem;  /* keep arrow + text tidy */
+  white-space:nowrap;                                   /* never wrap Prev/Next */
 }
 .wm-nav:hover{ background:#232a3a; color:var(--text-100); border-color:rgba(209,213,219,.40); transform:translateY(-1px); }
 
 /* ---------- Day block (tile) ---------- */
 .wm-day{
   overflow:hidden;
-  margin: 0 0 .75rem 0;                    /* breathing room between days */
+  margin: 0 0 .75rem 0;
 }
 .wm-day:last-of-type{ margin-bottom: 0; }
 
@@ -131,11 +133,11 @@
 /* ---------- Small phones (keep 1-row layout; allow 2-line names; hide Home/Away) ---------- */
 @media (max-width: 640px){
   .wm-row{
-    grid-template-columns:minmax(0,1fr) 96px minmax(0,1fr);
+    grid-template-columns:minmax(0,1fr) 92px minmax(0,1fr);  /* give teams more space */
     gap:.55rem;
     padding:.6rem .65rem;
   }
-  .wm-center{ min-width:96px; }
+  .wm-center{ min-width:92px; }
   .wm-team{ grid-template-columns:24px minmax(0,1fr); }
   .wm-team.right{ grid-template-columns:minmax(0,1fr) 24px; justify-items:end; }
   .wm-logo-wrap{ width:24px; height:24px; }
@@ -146,16 +148,20 @@
     display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
     overflow:hidden;
     line-height:1.08; font-size:.9rem;
-    overflow-wrap:anywhere;
+
+    /* 🔧 Fix ugly mid-word breaks on mobile */
+    word-break:keep-all;           /* don't split inside words */
+    overflow-wrap:break-word;      /* wrap only at spaces/hyphens */
+    hyphens:auto;                  /* allow natural hyphenation if needed */
   }
   .wm-team-place{ display:none; }
 
-  /* Controls: shrink so the full date fits */
+  /* Controls: shrink so the full date fits; keep buttons one-line */
   .wm-controls{ gap:.5rem; padding:.45rem .6rem; }
-  .wm-nav{ font-size:.82rem; padding:.28rem .6rem; height:1.8rem; }
+  .wm-nav{ font-size:.82rem; padding:.28rem .6rem; height:1.8rem; white-space:nowrap; }
   .wm-range{
     font-size:.86rem; letter-spacing:0;
-    white-space:nowrap; text-overflow:clip; overflow:visible; /* show full date */
+    white-space:nowrap; text-overflow:clip; overflow:visible;
   }
   .wm-time{ font-size:.95rem; }
   .wm-status{ font-size:.62rem; padding:.12rem .38rem; margin-top:.2rem; }
