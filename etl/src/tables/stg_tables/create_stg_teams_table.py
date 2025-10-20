@@ -1,6 +1,6 @@
 # create_stg_teams_table.py
 import os, sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../test_scripts")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../test_scripts")))
 from get_db_conn import get_db_connection
 
 def create_stg_teams_table():

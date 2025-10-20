@@ -1,7 +1,7 @@
 # create_team_league_seasons_table.py
 import os
 import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../test_scripts")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../test_scripts")))
 
 from get_db_conn import get_db_connection
 

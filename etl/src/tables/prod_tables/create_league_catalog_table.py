@@ -9,7 +9,7 @@ import sys
 
 # Add test_scripts dir to import get_db_connection
 sys.path.append(
-    os.path.abspath(os.path.join(os.path.dirname(__file__), "../../test_scripts"))
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../test_scripts"))
 )
 from get_db_conn import get_db_connection
 

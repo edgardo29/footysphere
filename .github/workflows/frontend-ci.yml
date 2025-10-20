@@ -7,12 +7,6 @@ on:
     paths:
       - 'frontend/**'
       - '.github/workflows/frontend-ci.yml'
-  # Also run after merges to main (sanity check)
-  push:
-    branches: [ main ]
-    paths:
-      - 'frontend/**'
-      - '.github/workflows/frontend-ci.yml'
 
 # If multiple runs are triggered on the same branch, keep only the newest
 concurrency:

@@ -10,6 +10,7 @@ import LeagueModal from "./LeagueModal";
 
 import PopularLeagues from "./PopularLeagues";
 import TodaysMatches from "./TodaysMatches";
+import News from "./News"; // ← NEW
 
 // Helper: try multiple endpoints safely
 async function firstPopularThatWorks(urls) {
@@ -116,6 +117,9 @@ export default function HomePage() {
           matchesByLeague={matchesByLeague}
           loading={loadingMatches}
         />
+
+        {/* ===== News section (below Today's Matches) ===== */}
+        <News />
       </main>
 
       <Footer />
