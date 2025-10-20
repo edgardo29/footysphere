@@ -7,12 +7,6 @@ on:
     paths:
       - 'etl/**'
       - '.github/workflows/etl-ci.yml'
-  # Also run post-merge on main when ETL changes land
-  push:
-    branches: [ main ]
-    paths:
-      - 'etl/**'
-      - '.github/workflows/etl-ci.yml'
 
 jobs:
   etl:

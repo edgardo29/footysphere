@@ -4,7 +4,7 @@
 /* frame */
 .wm-tab { 
   padding-top: .5rem; 
-  min-height: clamp(340px, 42vh, 640px);  /* ensures stable height when empty */
+  min-height: clamp(340px, 42vh, 640px);
 }
 .wm-inner {
   max-width: 1120px;
@@ -12,50 +12,65 @@
   padding: 0 1rem 2rem;
 }
 
-/* ---------- Controls bar (kept compact) ---------- */
+/* ---------- Controls bar: 3-column grid (Prev | Range | Next) ---------- */
 .wm-controls{
-  display:flex; align-items:center; justify-content:space-between;
-  gap:.75rem; padding:.6rem .9rem; margin:.25rem 0 1rem;
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  align-items:center;
+  gap:.75rem;
+  padding:.6rem .9rem;
+  margin:.25rem 0 1rem;
 }
-.wm-range{ font-weight:800; color:var(--text-100); }
+.wm-range{
+  font-weight:800; color:var(--text-100);
+  text-align:center;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  font-size: clamp(.9rem, 2.4vw, 1rem);
+}
 .wm-nav{
   appearance:none; -webkit-appearance:none;
   background:#1d2432; color:var(--text-200);
   font-weight:800; border:1px solid rgba(209,213,219,.18);
   border-radius:9999px; padding:.42rem .9rem;
+  line-height:1; height:2.1rem;
   cursor:pointer; transition:all .15s ease-in-out;
 }
 .wm-nav:hover{ background:#232a3a; color:var(--text-100); border-color:rgba(209,213,219,.40); transform:translateY(-1px); }
 
 /* ---------- Day block (tile) ---------- */
-.wm-day{ overflow:hidden; }
+.wm-day{
+  overflow:hidden;
+  margin: 0 0 .75rem 0;                    /* breathing room between days */
+}
+.wm-day:last-of-type{ margin-bottom: 0; }
+
 .wm-day-header{
   display:flex; align-items:center; justify-content:space-between;
-  padding:.75rem 1rem;                   /* SAME as standings thead */
+  padding:.75rem 1rem;
   background:rgba(255,255,255,.05);
   border-bottom:1px solid var(--line);
 }
 .wm-day-pill{ font-weight:800; color:var(--text-100); }
 .wm-day-count{ font-size:.85rem; color:var(--text-400); }
 
-/* ---------- Rows (match the table row sizing) ---------- */
+/* ---------- Rows ---------- */
 .wm-row{
   display:grid;
-  grid-template-columns: 1fr 132px 1fr;  /* left — center — right */
+  grid-template-columns: minmax(0,1fr) 132px minmax(0,1fr); /* left | center | right */
   align-items:center;
   gap:1rem;
-  padding:.85rem 1rem;                   /* SAME as standings td */
+  padding:.85rem 1rem;
   transition:background .12s ease;
 }
 .wm-row + .wm-row{ border-top:1px solid var(--line); }
 .wm-row:hover{ background:rgba(255,255,255,.035); }
 
-/* ---------- Team blocks (same crest size & spacing) ---------- */
+/* ---------- Team blocks ---------- */
 .wm-team{
   display:grid;
-  grid-template-columns: 32px minmax(0,1fr); /* 24px crest inside 32px chip */
+  grid-template-columns: 32px minmax(0,1fr);
   align-items:center;
-  column-gap:.55rem;                        /* SAME as standings team-wrap */
+  column-gap:.55rem;
   min-width:0;
 }
 .wm-team.right{
@@ -63,42 +78,29 @@
   justify-items:end;
 }
 
-/* Chip behind crest — mirrors the subtle square in Standings */
+/* Crest chip */
 .wm-logo-wrap{
-  width:32px; height:32px;                 /* chip size that surrounds 24px crest */
+  width:32px; height:32px;
   display:grid; place-items:center; line-height:0;
   background:rgba(255,255,255,.06);
   border:1px solid rgba(255,255,255,.12);
   border-radius:10px;
   box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
-  overflow:hidden;                          /* hard clip */
+  overflow:hidden;
 }
+.wm-logo{ width:24px; height:24px; object-fit:contain; object-position:center; display:block; }
 
-/* EXACT crest size to match Standings */
-.wm-logo{
-  width:24px; height:24px;                  /* SAME as .standings-table .team-logo */
-  object-fit:contain; object-position:center; display:block;
-}
-
-/* downsize on small screens (Standings does 20px) */
-@media (max-width: 900px){
-  .wm-team{ grid-template-columns:28px minmax(0,1fr); }
-  .wm-team.right{ grid-template-columns:minmax(0,1fr) 28px; }
-  .wm-logo-wrap{ width:28px; height:28px; }
-  .wm-logo{ width:20px; height:20px; }      /* SAME as standings mobile */
-}
-
-/* Team text — same weights/sizes */
+/* Team text */
 .wm-team-info{ display:flex; flex-direction:column; min-width:0; }
 .wm-team-info.right-info{ align-items:end; text-align:right; }
 .wm-team-name{
-  color:var(--text-200);                    /* SAME tone as standings */
+  color:var(--text-200);
   font-weight:700; line-height:1.12;
-  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; /* desktop: single line */
 }
 .wm-team-place{ color:var(--text-400); font-size:.75rem; line-height:1; }
 
-/* ---------- Center column (time/status) ---------- */
+/* ---------- Center (time/status) ---------- */
 .wm-center{ display:flex; flex-direction:column; align-items:center; min-width:132px; }
 .wm-time{
   color:var(--text-100); font-weight:900; letter-spacing:.02em;
@@ -114,12 +116,63 @@
 /* ---------- Empty/error card ---------- */
 .wm-empty{ padding:1rem; text-align:center; }
 
-/* ---------- Mobile stacking ---------- */
+/* ---------- Medium screens ---------- */
+@media (max-width: 900px){
+  .wm-row{ gap:.75rem; padding:.72rem .8rem; grid-template-columns:minmax(0,1fr) 118px minmax(0,1fr); }
+  .wm-team{ grid-template-columns:28px minmax(0,1fr); }
+  .wm-team.right{ grid-template-columns:minmax(0,1fr) 28px; }
+  .wm-logo-wrap{ width:28px; height:28px; }
+  .wm-logo{ width:20px; height:20px; }
+  .wm-team-name{ font-size:.95rem; }
+  .wm-team-place{ font-size:.72rem; }
+  .wm-status{ font-size:.68rem; padding:.16rem .44rem; }
+}
+
+/* ---------- Small phones (keep 1-row layout; allow 2-line names; hide Home/Away) ---------- */
 @media (max-width: 640px){
   .wm-row{
-    grid-template-columns: 1fr auto;       /* home + center (row1), away (row2) */
-    grid-auto-rows:auto; row-gap:.35rem;
+    grid-template-columns:minmax(0,1fr) 96px minmax(0,1fr);
+    gap:.55rem;
+    padding:.6rem .65rem;
   }
-  .wm-team.right{ justify-items:start; }
-  .wm-team-info.right-info{ align-items:flex-start; text-align:left; }
+  .wm-center{ min-width:96px; }
+  .wm-team{ grid-template-columns:24px minmax(0,1fr); }
+  .wm-team.right{ grid-template-columns:minmax(0,1fr) 24px; justify-items:end; }
+  .wm-logo-wrap{ width:24px; height:24px; }
+  .wm-logo{ width:18px; height:18px; }
+
+  .wm-team-name{
+    white-space:normal;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+    overflow:hidden;
+    line-height:1.08; font-size:.9rem;
+    overflow-wrap:anywhere;
+  }
+  .wm-team-place{ display:none; }
+
+  /* Controls: shrink so the full date fits */
+  .wm-controls{ gap:.5rem; padding:.45rem .6rem; }
+  .wm-nav{ font-size:.82rem; padding:.28rem .6rem; height:1.8rem; }
+  .wm-range{
+    font-size:.86rem; letter-spacing:0;
+    white-space:nowrap; text-overflow:clip; overflow:visible; /* show full date */
+  }
+  .wm-time{ font-size:.95rem; }
+  .wm-status{ font-size:.62rem; padding:.12rem .38rem; margin-top:.2rem; }
+}
+
+/* ---------- Ultra-narrow fallback: if still tight, let date wrap to 2 lines ---------- */
+@media (max-width: 380px){
+  .wm-controls{ gap:.45rem; padding:.38rem .55rem; }
+  .wm-nav{ font-size:.8rem; padding:.22rem .5rem; height:1.65rem; }
+  .wm-range{
+    font-size:.8rem; line-height:1.05;
+    white-space:normal;                    /* allow wrap to two tidy lines */
+  }
+}
+
+/* Extra tiny */
+@media (max-width: 340px){
+  .wm-nav{ font-size:.78rem; padding:.18rem .46rem; }
+  .wm-range{ font-size:.78rem; }
 }
