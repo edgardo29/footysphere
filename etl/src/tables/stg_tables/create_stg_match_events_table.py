@@ -5,7 +5,7 @@ Run once (or safely re‑run) after you have get_db_conn().
 """
 import os, sys
 sys.path.append(os.path.abspath(os.path.join(
-    os.path.dirname(__file__), "../../test_scripts")))
+    os.path.dirname(__file__), "../../../test_scripts")))
 from get_db_conn import get_db_connection
 
 DDL = """

@@ -18,6 +18,8 @@ from .routers import leaguesPage
 from .routers import teamPage
 from .routers import matchDetailsPage
 from .routers import leagueModal
+from .routers import news
+
 
 
 # ─────────── logging config ───────────
@@ -96,3 +98,5 @@ app.include_router(leaguesPage.router)
 app.include_router(teamPage.router)
 app.include_router(matchDetailsPage.router)
 app.include_router(leagueModal.router)
+app.include_router(news.router)
+

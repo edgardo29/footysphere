@@ -4,7 +4,7 @@ Creates the production match_events table + indexes.
 """
 import os, sys
 sys.path.append(os.path.abspath(os.path.join(
-    os.path.dirname(__file__), "../../test_scripts")))
+    os.path.dirname(__file__), "../../../test_scripts")))
 from get_db_conn import get_db_connection
 
 DDL = """

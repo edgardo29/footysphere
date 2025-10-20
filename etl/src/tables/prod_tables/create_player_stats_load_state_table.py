@@ -2,7 +2,7 @@ import os
 import sys
 
 # Add the `test_scripts` directory to sys.path for imports
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../test_scripts")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../test_scripts")))
 
 from get_db_conn import get_db_connection
 
