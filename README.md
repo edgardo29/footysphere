@@ -10,6 +10,7 @@ Personal football analytics web app. Shows recent results, league tables, team f
 - League standings
 - Team fixtures (past/upcoming)
 - Match details (goals, cards, possession, shots, etc.)
+- News
 
 ## Tech Stack
 React/Vite (frontend) · FastAPI (API) · Postgres (DB) · Airflow + Python (ETL) · Azure Blob (snapshots) · **Azure Static Web Apps (frontend hosting)** · **Azure Virtual Machine (API & Airflow)** · API-Football (data)
