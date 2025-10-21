@@ -9,9 +9,9 @@ import "../homePage/styles/homePage.css";
 import "./styles/matchDetailsPage.css";
 
 // Eager-load component styles here ⬇️
-import "./styles/MatchHeader.css";
-import "./styles/MatchTimeline.css";
-import "./styles/MatchStats.css";
+import "./styles/matchHeader.css";
+import "./styles/matchTimeline.css";
+import "./styles/matchStats.css";
 
 // Components
 import MatchHeader from "./MatchHeader";
