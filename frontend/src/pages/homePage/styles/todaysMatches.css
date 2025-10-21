@@ -3,7 +3,7 @@
 /* Tunables */
 #today{
   --w-2cols: 670px;       /* each content rail */
-  --col-gap: 24px;        /* gap between rails */
+  --col-gap: 24px;        /* gap between rails / grid columns */
   --row-gap: 18px;        /* vertical gap between league blocks */
   --rail-width: 340px;    /* right search rail */
 
@@ -28,31 +28,42 @@
   .content-zone{ width:100%; }
   .today-rail{ display:none; }
 }
+/* Two-column grid that DOESN'T stretch items */
+.todays-leagues-grid{
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--row-gap) var(--col-gap);
+  align-items: start;          /* 👈 don't stretch to row height */
+}
+.todays-leagues-grid.is-filtering{
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--row-gap) var(--col-gap);
+  align-items: start;          /* 👈 same here */
+}
 
-/* ===== League rail uses CSS columns for masonry (no big holes) ===== */
-.todays-leagues-grid{ display:block; column-count:2; column-gap:var(--col-gap); }
-.todays-leagues-grid.is-filtering{ display:block; column-count:2; column-gap:var(--col-gap); }
 @media (max-width:1100px){
   .todays-leagues-grid,
-  .todays-leagues-grid.is-filtering{ column-count:1; }
+  .todays-leagues-grid.is-filtering{
+    grid-template-columns: 1fr;
+  }
 }
 
-/* Each league block behaves as a masonry item — CLIPPED to its radius */
+/* Make sure each tile itself opts out of stretching as well */
 .league-block{
-  display:inline-block;
-  width:100%;
-  margin:0 0 var(--row-gap);
-  padding:0;
-  overflow:hidden;                 /* clip child hovers to rounded corners */
-  border-radius:14px;              /* match your tile curve */
-  break-inside:avoid;
-  -webkit-column-break-inside:avoid;
-  page-break-inside:avoid;
-  isolation:isolate;
-  background-clip:padding-box;
-  transform:translateZ(0);         /* Safari seam fix */
+  display: block;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  border-radius: 14px;
+  background-clip: padding-box;
+  isolation: isolate;
+  transform: translateZ(0);
+  align-self: start;           /* 👈 guard against any container defaults */
 }
-.league-block.tile{ margin:0 0 var(--row-gap); }
+
+.league-block.tile{ margin:0; }
 
 /* ===== Group header (rounded at the top) ===== */
 .group-header{

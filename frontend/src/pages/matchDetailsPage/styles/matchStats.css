@@ -1,0 +1,13 @@
+.stats{padding:.7rem var(--page-xpad) 1.1rem;display:grid;gap:.85rem}
+.stat-row{display:grid;gap:.45rem}
+.stat-values{display:grid;grid-template-columns:64px 1fr 64px;align-items:center}
+.stat-label{text-align:center;color:var(--text-200)}
+.val.left{text-align:left;font-weight:800;color:var(--text-100)}
+.val.right{text-align:right;font-weight:800;color:var(--text-100)}
+.val-badge{display:inline-flex;align-items:center;gap:.3rem;padding:.18rem .5rem;border-radius:999px;border:1px solid transparent;font-weight:800}
+.val-badge.home{background:rgba(16,185,129,.22);border-color:rgba(16,185,129,.5);color:#b7f3d7}
+.val-badge.away{background:rgba(99,102,241,.22);border-color:rgba(99,102,241,.5);color:#c7d2fe}
+.stat-bar{position:relative;height:12px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
+.bar{position:absolute;top:0;bottom:0}
+.bar.home{left:0;background:rgba(16,185,129,.35)}
+.bar.away{right:0;background:rgba(99,102,241,.35)}
