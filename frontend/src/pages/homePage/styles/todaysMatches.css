@@ -4,7 +4,7 @@
 #today{
   --w-2cols: 670px;       /* each content rail */
   --col-gap: 24px;        /* gap between rails / grid columns */
-  --row-gap: 18px;        /* vertical gap between league blocks */
+  --row-gap: 12px;        /* vertical gap between league blocks (tighter) */
   --rail-width: 340px;    /* right search rail */
 
   /* Center time column: fixed width (fits "08:00 PM") */
@@ -28,42 +28,38 @@
   .content-zone{ width:100%; }
   .today-rail{ display:none; }
 }
-/* Two-column grid that DOESN'T stretch items */
-.todays-leagues-grid{
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--row-gap) var(--col-gap);
-  align-items: start;          /* 👈 don't stretch to row height */
-}
+
+/* ===== Masonry layout (NO big gaps) =====
+   Packs league tiles top-to-bottom, left-to-right across two columns.
+   This replaces the old CSS grid that created tall aligned rows. */
+.todays-leagues-grid,
 .todays-leagues-grid.is-filtering{
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--row-gap) var(--col-gap);
-  align-items: start;          /* 👈 same here */
+  column-count: 2;
+  column-gap: var(--col-gap);
 }
 
+/* One column on smaller screens */
 @media (max-width:1100px){
   .todays-leagues-grid,
   .todays-leagues-grid.is-filtering{
-    grid-template-columns: 1fr;
+    column-count: 1;
   }
 }
 
-/* Make sure each tile itself opts out of stretching as well */
+/* Each league tile behaves like a masonry block */
 .league-block{
   display: block;
   width: 100%;
   padding: 0;
-  margin: 0;
+  margin: 0 0 var(--row-gap) 0; /* vertical spacing between tiles */
   overflow: hidden;
   border-radius: 14px;
   background-clip: padding-box;
   isolation: isolate;
   transform: translateZ(0);
-  align-self: start;           /* 👈 guard against any container defaults */
+  break-inside: avoid;          /* critical for masonry: don't split tiles */
 }
-
-.league-block.tile{ margin:0; }
+.league-block.tile{ margin:0 0 var(--row-gap) 0; }
 
 /* ===== Group header (rounded at the top) ===== */
 .group-header{
