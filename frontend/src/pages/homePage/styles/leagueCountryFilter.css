@@ -1,0 +1,216 @@
+/* Make sure dropdown isn't clipped by section styles */
+.league-country-filter{
+  position: relative;
+  overflow: visible;
+}
+
+/* =========================
+   Chips row
+========================= */
+.country-bar{
+  display:flex;
+  gap:.5rem;
+  align-items:center;
+  padding:.25rem 0 .4rem;
+  overflow: visible;
+}
+.country-bar--wrap{
+  flex-wrap: wrap;
+}
+
+.country-chip{
+  border:1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.06);
+  color: var(--text-200);
+  font-size:.78rem;
+  font-weight:750;
+  padding:.34rem .68rem;
+  border-radius:999px;
+  cursor:pointer;
+  white-space:nowrap;
+  transition: border-color .16s ease, background .16s ease, box-shadow .16s ease;
+}
+.country-chip:hover{
+  border-color: rgba(255,255,255,.22);
+  box-shadow: 0 0 0 3px rgba(255,255,255,.04);
+}
+.country-chip--active{
+  background: rgba(59,130,246,.22);
+  border-color: rgba(59,130,246,.45);
+  color:#fff;
+}
+.country-chip--more{
+  background: rgba(17,24,39,.55);
+}
+
+/* =========================
+   “More” dropdown (THIS is what removes clutter)
+   - doesn’t create a second row
+   - floats over content
+========================= */
+.more-anchor{
+  position: relative;
+  display: inline-flex;
+}
+
+.more-dropdown{
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 50;
+
+  width: min(720px, calc(100vw - 48px));
+  padding: .6rem .65rem;
+  border-radius: 16px;
+
+  background: rgba(14,20,30,.92);
+  border: 1px solid rgba(255,255,255,.10);
+
+  /* NO SHADOW / NO GLOW */
+  box-shadow: none;
+
+  /* optional: if you want it to look less “hazy” too */
+  backdrop-filter: none;
+}
+
+
+.more-dropdown.is-small{
+  width: fit-content;
+  max-width: min(720px, calc(100vw - 48px));
+  padding: .55rem .6rem;
+}
+
+/* Search */
+.more-search{
+  width: 100%;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 12px;
+  padding: .55rem .75rem;
+  color: var(--text-100);
+  outline:none;
+}
+.more-search::placeholder{
+  color: rgba(174,183,196,.85);
+}
+
+/* A–Z */
+.more-alpha{
+  margin-top: .45rem;
+  display:flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+}
+
+.alpha-btn{
+  border:1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.04);
+  color: var(--text-200);
+  font-size:.72rem;
+  font-weight:800;
+  border-radius: 10px;
+  padding: .25rem .45rem;
+  cursor:pointer;
+  transition: border-color .16s ease, background .16s ease, box-shadow .16s ease;
+}
+.alpha-btn:hover{
+  border-color: rgba(255,255,255,.22);
+  box-shadow: 0 0 0 3px rgba(255,255,255,.035);
+}
+.alpha-btn.is-active{
+  background: rgba(59,130,246,.18);
+  border-color: rgba(59,130,246,.40);
+  color:#fff;
+}
+
+/* List container
+   - no translate hover so nothing gets cut off
+   - padding:2px so glow never clips inside scroll
+*/
+.more-list{
+  margin-top: .45rem;
+  padding: 2px;
+  max-height: 240px;
+  overflow: auto;
+  padding-right: .2rem;
+}
+
+.more-dropdown.is-small .more-list{
+  margin-top: 0;
+}
+
+/* Small list = wrap pills naturally */
+.more-list.compact{
+  display:flex;
+  flex-wrap: wrap;
+  gap:.45rem;
+}
+
+/* Large list = dense grid, still scrollable */
+.more-list.dense{
+  display:grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap:.45rem;
+}
+
+/* Pills */
+.more-pill{
+  border:1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.05);
+  color: var(--text-200);
+  font-size:.78rem;
+  font-weight:750;
+  border-radius:999px;
+  padding: .34rem .68rem;
+  cursor:pointer;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  transition: border-color .16s ease, background .16s ease, box-shadow .16s ease;
+}
+.more-pill:hover{
+  border-color: rgba(255,255,255,.22);
+  box-shadow: 0 0 0 3px rgba(255,255,255,.035);
+}
+.more-pill.is-active{
+  background: rgba(59,130,246,.18);
+  border-color: rgba(59,130,246,.40);
+  color:#fff;
+  box-shadow: 0 0 0 3px rgba(59,130,246,.10);
+}
+
+.more-empty{
+  padding:.35rem .2rem;
+}
+
+/* =========================
+   League grid (don’t stretch into banners)
+========================= */
+.leagues-grid--compact{
+  margin-top: .6rem;
+}
+
+.leagues-grid.leagues-grid--compact{
+  grid-template-columns: repeat(auto-fill, minmax(320px, 420px));
+  justify-content: start;
+}
+
+/* Load more leagues */
+.leagues-load-more{
+  margin-top: .55rem;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.05);
+  color: var(--text-200);
+  font-weight: 800;
+  font-size: .8rem;
+  padding: .5rem .75rem;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color .16s ease, background .16s ease, box-shadow .16s ease;
+}
+.leagues-load-more:hover{
+  border-color: rgba(255,255,255,.22);
+  box-shadow: 0 0 0 3px rgba(255,255,255,.035);
+}
