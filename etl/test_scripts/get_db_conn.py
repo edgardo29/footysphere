@@ -10,7 +10,25 @@ sys.path.append(
     )
 )
 
-from credentials import DB_CREDENTIALS, DB_TEST_CREDENTIALS
+try:
+    from credentials import DB_CREDENTIALS, DB_TEST_CREDENTIALS
+except ModuleNotFoundError:
+    # CI (and some environments) won't have credentials.py because it's gitignored.
+    DB_CREDENTIALS = {
+        "host": os.getenv("DB_HOST", "football-db.postgres.database.azure.com"),
+        "port": int(os.getenv("DB_PORT", "5432")),
+        "dbname": os.getenv("DB_NAME", "footysphere_db"),
+        "user": os.getenv("DB_USER", "football_pgadmin"),
+        "password": os.getenv("DB_PASSWORD", "Password"),
+    }
+
+    DB_TEST_CREDENTIALS = {
+        "host": os.getenv("DB_HOST", "football-db.postgres.database.azure.com"),
+        "port": int(os.getenv("DB_PORT", "5432")),
+        "dbname": os.getenv("DB_TEST_NAME", "footysphere_test_db"),
+        "user": os.getenv("DB_USER", "football_pgadmin"),
+        "password": os.getenv("DB_PASSWORD", "Password"),
+    }
 
 
 def get_db_connection(target_db: str = "main"):

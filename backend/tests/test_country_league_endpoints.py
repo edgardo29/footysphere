@@ -31,8 +31,8 @@ sys.path.append(str(BASE_DIR / "backend"))
 # Project imports
 # ─────────────────────────────────────
 
-from get_db_conn import get_db_connection  # psycopg2 helper (main/test DB)
-from credentials import DB_TEST_CREDENTIALS
+from get_db_conn import get_db_connection, DB_TEST_CREDENTIALS
+
 
 # Import the actual route functions we want to test
 from app.routers.leagues_by_country import (
