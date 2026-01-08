@@ -19,6 +19,9 @@ from .routers import teamPage
 from .routers import matchDetailsPage
 from .routers import leagueModal
 from .routers import news
+from .routers import leagues_by_country
+
+
 
 
 
@@ -99,4 +102,6 @@ app.include_router(teamPage.router)
 app.include_router(matchDetailsPage.router)
 app.include_router(leagueModal.router)
 app.include_router(news.router)
+app.include_router(leagues_by_country.router)
+
 
