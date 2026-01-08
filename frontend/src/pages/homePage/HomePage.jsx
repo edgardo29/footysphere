@@ -10,6 +10,7 @@ import LeagueModal from "./LeagueModal";
 
 import PopularLeagues from "./PopularLeagues";
 import TodaysMatches from "./TodaysMatches";
+import LeagueCountryFilter from "./LeagueCountryFilter";
 import News from "./News"; // ← NEW
 
 // Helper: try multiple endpoints safely
@@ -112,6 +113,8 @@ export default function HomePage() {
           loading={loadingLeagues}
           onViewMore={() => setShowLeagueModal(true)}
         />
+        
+        <LeagueCountryFilter apiBase={API} />
 
         <TodaysMatches
           matchesByLeague={matchesByLeague}

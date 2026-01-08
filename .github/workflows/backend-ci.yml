@@ -1,15 +1,47 @@
 name: backend-ci  # CI for the FastAPI backend
 
 on:
-  # Run CI on PRs that modify backend/ or this workflow file
+  # Run CI on PRs that modify backend/, etl/ (tests import from there), or this workflow file
   pull_request:
     paths:
       - 'backend/**'
+      - 'etl/**'
       - '.github/workflows/backend-ci.yml'
 
 jobs:
   build-test:
     runs-on: ubuntu-latest
+
+    # ─────────────────────────────────────
+    # Test DB environment variables (used by DB_TEST_CREDENTIALS)
+    # ─────────────────────────────────────
+    env:
+      # In GitHub Actions, the Postgres service is reachable from the runner at localhost:5432
+      DB_HOST: localhost
+      DB_PORT: 5432
+
+      # These should be set as GitHub Secrets (recommended)
+      DB_TEST_NAME: ${{ secrets.DB_TEST_NAME }}
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+
+    # ─────────────────────────────────────
+    # Temporary Postgres DB for integration tests
+    # ─────────────────────────────────────
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: ${{ secrets.DB_TEST_NAME }}
+          POSTGRES_USER: ${{ secrets.DB_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
 
     # All shell steps below execute inside backend/
     defaults:
@@ -32,6 +64,22 @@ jobs:
       # 3) Install backend dependencies from YOUR exact file name
       - name: Install dependencies
         run: pip install -r requirements_api.txt
+
+      # 3.5) Install psql client so we can apply schema SQL
+      - name: Install Postgres client (psql)
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      # 3.6) Create the test schema in the fresh CI Postgres
+      - name: Create test schema
+        env:
+          PGPASSWORD: ${{ env.DB_PASSWORD }}
+        run: |
+          psql \
+            -h $DB_HOST \
+            -p $DB_PORT \
+            -U $DB_USER \
+            -d $DB_TEST_NAME \
+            -f tests/schema_test.sql
 
       # 4) Run tests only if a tests/ folder exists (auto-skip otherwise)
       - name: Run tests (if present)
