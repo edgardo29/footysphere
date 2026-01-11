@@ -37,11 +37,13 @@ jobs:
           POSTGRES_PASSWORD: ${{ secrets.DB_PASSWORD }}
         ports:
           - 5432:5432
+
+        # Healthcheck should use the same user/db we created, not postgres/postgres
         options: >-
-          --health-cmd="pg_isready -U postgres -d postgres"
+          --health-cmd="pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"
           --health-interval=10s
           --health-timeout=5s
-          --health-retries=5
+          --health-retries=10
 
     # All shell steps below execute inside backend/
     defaults:
@@ -69,16 +71,27 @@ jobs:
       - name: Install Postgres client (psql)
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
 
+      # 3.55) Wait until Postgres is actually reachable before applying schema
+      # (healthcheck can still race a tiny bit)
+      - name: Wait for Postgres to be ready
+        env:
+          PGPASSWORD: ${{ env.DB_PASSWORD }}
+        run: |
+          for i in {1..30}; do
+            psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_TEST_NAME" -c "SELECT 1;" && break
+            sleep 1
+          done
+
       # 3.6) Create the test schema in the fresh CI Postgres
       - name: Create test schema
         env:
           PGPASSWORD: ${{ env.DB_PASSWORD }}
         run: |
           psql \
-            -h $DB_HOST \
-            -p $DB_PORT \
-            -U $DB_USER \
-            -d $DB_TEST_NAME \
+            -h "$DB_HOST" \
+            -p "$DB_PORT" \
+            -U "$DB_USER" \
+            -d "$DB_TEST_NAME" \
             -f tests/schema_test.sql
 
       # 4) Run tests only if a tests/ folder exists (auto-skip otherwise)
