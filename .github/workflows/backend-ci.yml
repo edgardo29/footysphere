@@ -37,8 +37,9 @@ jobs:
           POSTGRES_PASSWORD: ${{ secrets.DB_PASSWORD }}
         ports:
           - 5432:5432
+
+        # Healthcheck should use the same user/db we created, not postgres/postgres
         options: >-
-          # Healthcheck should use the same user/db we created, not postgres/postgres
           --health-cmd="pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"
           --health-interval=10s
           --health-timeout=5s
