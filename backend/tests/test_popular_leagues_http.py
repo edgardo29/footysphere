@@ -20,7 +20,6 @@ from app.main import app
 from app.db import get_session
 
 
-# Build async SQLAlchemy URL for the TEST DB
 ASYNC_TEST_DB_URL = (
     f"postgresql+asyncpg://"
     f"{DB_TEST_CREDENTIALS['user']}:"
@@ -33,13 +32,7 @@ ASYNC_TEST_DB_URL = (
 # ─────────────────────────────────────
 # Seeding helpers (sync)
 # ─────────────────────────────────────
-def seed_leagues_in_test_db(include_null_country: bool = False):
-    """
-    Seed ONLY the leagues table for /countries and /leagues_by_country.
-
-    We still clear fixtures/teams first to avoid FK issues if other tests
-    seeded those tables earlier in the same run.
-    """
+def seed_popular_leagues_in_test_db():
     conn = get_db_connection("test")
     cur = conn.cursor()
 
@@ -48,22 +41,46 @@ def seed_leagues_in_test_db(include_null_country: bool = False):
     cur.execute("DELETE FROM teams;")
     cur.execute("DELETE FROM leagues;")
 
-    rows = [
-        (1, "Premier League", "https://example.com/epl.png", "England"),
-        (2, "Championship", "https://example.com/championship.png", "England"),
-        (3, "La Liga", "https://example.com/laliga.png", "Spain"),
-        (4, "Serie A", "https://example.com/seriea.png", "Italy"),
-    ]
+    cur.executemany(
+        """
+        INSERT INTO leagues (
+            league_id, league_name, league_logo_url, league_country, is_popular, display_order
+        )
+        VALUES (%s, %s, %s, %s, %s, %s);
+        """,
+        [
+            (101, "La Liga", "https://example.com/laliga.png", "Spain", True, 2),
+            (102, "Premier League", "https://example.com/epl.png", "England", True, 1),
+            (103, "Serie A", "https://example.com/seriea.png", "Italy", True, 3),
+            (201, "Championship", "https://example.com/championship.png", "England", False, 0),
+        ],
+    )
 
-    if include_null_country:
-        rows.append((5, "Null Country League", "https://example.com/null.png", None))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
+def seed_only_non_popular_leagues_in_test_db():
+    conn = get_db_connection("test")
+    cur = conn.cursor()
+
+    # FK-safe clear order
+    cur.execute("DELETE FROM fixtures;")
+    cur.execute("DELETE FROM teams;")
+    cur.execute("DELETE FROM leagues;")
 
     cur.executemany(
         """
-        INSERT INTO leagues (league_id, league_name, league_logo_url, league_country)
-        VALUES (%s, %s, %s, %s);
+        INSERT INTO leagues (
+            league_id, league_name, league_logo_url, league_country, is_popular, display_order
+        )
+        VALUES (%s, %s, %s, %s, %s, %s);
         """,
-        rows,
+        [
+            (301, "Non Popular A", "https://example.com/a.png", "X", False, 1),
+            (302, "Non Popular B", "https://example.com/b.png", "Y", False, 2),
+        ],
     )
 
     conn.commit()
@@ -86,11 +103,7 @@ async def client():
     while overriding get_session to use the TEST database.
     """
     async_engine = create_async_engine(ASYNC_TEST_DB_URL, echo=False, future=True)
-    AsyncSessionLocal = sessionmaker(
-        async_engine,
-        expire_on_commit=False,
-        class_=AsyncSession,
-    )
+    AsyncSessionLocal = sessionmaker(async_engine, expire_on_commit=False, class_=AsyncSession)
 
     async def override_get_session():
         async with AsyncSessionLocal() as session:
@@ -110,32 +123,29 @@ async def client():
 # Tests
 # ─────────────────────────────────────
 @pytest.mark.anyio
-async def test_http_countries_and_leagues_by_country(client):
-    seed_leagues_in_test_db(include_null_country=True)
+async def test_http_popular_leagues_filters_and_orders(client):
+    seed_popular_leagues_in_test_db()
 
-    # /countries
-    r = await client.get("/countries")
+    r = await client.get("/leagues/popular")
     assert r.status_code == 200
-    countries = r.json()
-    assert isinstance(countries, list)
-    assert all("country" in x for x in countries)
 
-    country_names = [x["country"] for x in countries]
-    assert "England" in country_names
-    assert "Spain" in country_names
-    assert "Italy" in country_names
-    assert None not in country_names  # NULL countries should be excluded
+    data = r.json()
+    assert isinstance(data, list)
 
-    # /leagues_by_country?country=England
-    r2 = await client.get("/leagues_by_country", params={"country": "England"})
-    assert r2.status_code == 200
-    leagues = r2.json()
-    assert isinstance(leagues, list)
-    assert len(leagues) == 2
+    # Ordered by display_order: 1,2,3
+    assert [x["name"] for x in data] == ["Premier League", "La Liga", "Serie A"]
 
-    # ordering + shape
-    assert [x["name"] for x in leagues] == ["Championship", "Premier League"]
-    assert {x["country"] for x in leagues} == {"England"}
+    # HTTP layer returns alias key: league_logo_url
+    assert all("id" in x for x in data)
+    assert all("name" in x for x in data)
+    assert all("country" in x for x in data)
+    assert all("league_logo_url" in x for x in data)
 
-    # This endpoint returns logo_url (not league_logo_url)
-    assert all("logo_url" in x for x in leagues)
+
+@pytest.mark.anyio
+async def test_http_popular_leagues_empty_when_none_popular(client):
+    seed_only_non_popular_leagues_in_test_db()
+
+    r = await client.get("/leagues/popular")
+    assert r.status_code == 200
+    assert r.json() == []
