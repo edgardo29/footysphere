@@ -200,7 +200,7 @@ async def get_league_standings(
 # Weekly matches for a league
 #   GET /leaguesPage/{league_id}/weekly-matches?start=YYYY-MM-DD&days=7
 # ────────────────────────────────────────────────────────────────
-from datetime import date as _date, datetime as _dt, timedelta as _td
+from datetime import date as _date, datetime as _dt, time as _time, timedelta as _td, timezone as _tz
 
 class WeeklyMatchOut(BaseModel):
     id: int
@@ -253,10 +253,11 @@ async def get_weekly_matches(
 ):
     try:
         if start is None:
-            today = _date.today()
-            start = today - _td(days=today.weekday())  # Monday
-        start_ts = _dt.combine(start, _dt.min.time())
-        end_ts   = start_ts + _td(days=days)
+            today_utc = _dt.now(_tz.utc).date()
+            start = today_utc - _td(days=today_utc.weekday())  # Monday in UTC week
+
+        start_ts = _dt.combine(start, _time.min, tzinfo=_tz.utc)
+        end_ts = start_ts + _td(days=days)
 
         res = await db.execute(
             SQL_WEEKLY_MATCHES.bindparams(
@@ -267,7 +268,7 @@ async def get_weekly_matches(
         )
         return list(res.mappings())
     except SQLAlchemyError:
-        logging.getLogger(__name__).exception(
+        logger.exception(
             "DB error in get_weekly_matches league_id=%s start=%s days=%s",
             league_id, start, days
         )

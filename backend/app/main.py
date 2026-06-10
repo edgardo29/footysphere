@@ -20,8 +20,8 @@ from .routers import matchDetailsPage
 from .routers import leagueModal
 from .routers import news
 from .routers import leagues_by_country
-
-
+from .routers import auth
+from .routers import favorites
 
 
 
@@ -79,15 +79,18 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# ─────────── CORS (strict; expand later if needed) ─────────
-# For HomePage reads we only need GET and basic headers.
+# ─────────── CORS ───────────
+# UPDATED:
+# - Auth needs POST (register/login)
+# - Protected routes use Authorization header (Bearer token)
+# - Favorites later will need DELETE
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=False,                # set True only if you actually use cookies
-    allow_methods=["GET"],                  # expand if you later add POST/PUT/DELETE from the browser
-    allow_headers=["Accept", "Content-Type"],
-    max_age=86400,                          # cache preflight for a day
+    allow_credentials=False,                # keep False since we're not using cookies
+    allow_methods=["GET", "POST", "DELETE"],
+    allow_headers=["Accept", "Content-Type", "Authorization"],
+    max_age=86400,
 )
 
 # ─────────── health route (tiny, no DB) ─────────
@@ -96,6 +99,7 @@ def health():
     return {"status": "ok"}
 
 # ─────────── routers ─────────
+# Existing routers (unchanged paths)
 app.include_router(homepage.router)
 app.include_router(leaguesPage.router)
 app.include_router(teamPage.router)
@@ -104,4 +108,5 @@ app.include_router(leagueModal.router)
 app.include_router(news.router)
 app.include_router(leagues_by_country.router)
 
-
+app.include_router(auth.router, prefix="/api/v1")
+app.include_router(favorites.router, prefix="/api/v1")

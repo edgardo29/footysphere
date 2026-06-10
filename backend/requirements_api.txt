@@ -38,4 +38,7 @@ websockets==15.0.1
 pytest
 pytest-anyio
 httpx
-
+python-jose[cryptography]
+passlib[bcrypt]
+bcrypt
+email-validator

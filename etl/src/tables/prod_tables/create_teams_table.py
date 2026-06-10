@@ -23,7 +23,7 @@ def create_teams_table():
         team_logo_url TEXT,
         venue_id INT,
         load_date     TIMESTAMP(0) NOT NULL DEFAULT now(),
-        upd_date      TIMESTAMP(0) NOT NULL DEFAULT now()
+        upd_date      TIMESTAMP(0) NOT NULL DEFAULT now(),
 
         FOREIGN KEY (venue_id) REFERENCES venues(venue_id)
     );
